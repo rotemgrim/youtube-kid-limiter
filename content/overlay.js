@@ -9,6 +9,7 @@
   let gaugeTimer = null;
   let restTimer = null;
   let headsupGuard = null;
+  let readyGuard = null;
 
   // A blobby "mind" shape used for the refilling brain.
   const BRAIN_PATH =
@@ -277,11 +278,13 @@
       // Re-attach if YouTube's SPA (or a tampering kid) removed it, and keep video paused.
       if (!document.getElementById(REST_ID)) root().appendChild(node);
       pauseAllVideos();
-      paintRest(node, Math.max(0, Math.min(1, 1 - left / totalMs)), left);
       if (left <= 0) {
         clearInterval(restTimer); restTimer = null;
         chrome.runtime.sendMessage({ type: 'restComplete' }).catch(() => {});
+        showReady(); // brain full — wait for the kid to click before resuming
+        return;
       }
+      paintRest(node, Math.max(0, Math.min(1, 1 - left / totalMs)), left);
     };
     update();
     restTimer = setInterval(update, 250);
@@ -289,7 +292,45 @@
 
   function removeRest() {
     if (restTimer) { clearInterval(restTimer); restTimer = null; }
+    if (readyGuard) { clearInterval(readyGuard); readyGuard = null; }
     document.getElementById(REST_ID)?.remove();
+  }
+
+  // Break is over and the mind is recharged. Show a full brain and a Start button,
+  // but DON'T autoplay — keep the video paused until the kid clicks Start.
+  function showReady() {
+    removeGauge();
+    removeHeadsUp();
+    if (restTimer) { clearInterval(restTimer); restTimer = null; }
+    let node = document.getElementById(REST_ID);
+    if (!node) { node = buildRest(); applyScene(node, restCategory()); root().appendChild(node); }
+
+    const rect = node.querySelector('#kl-brain-fill');
+    if (rect) { rect.setAttribute('y', '10'); rect.setAttribute('height', '80'); }
+    const pct = node.querySelector('.kl-brain-pct');
+    if (pct) pct.textContent = '100%';
+    node.querySelector('.kl-title').textContent = 'Your mind is recharged!';
+    node.querySelector('.kl-sub').textContent = 'Ready to watch again?';
+
+    if (!node.querySelector('#kl-ready-start')) {
+      node.querySelector('.kl-count')?.remove();
+      const btn = el('<button id="kl-ready-start" class="kl-btn">Start watching</button>');
+      node.querySelector('.kl-rest-card').appendChild(btn);
+      btn.addEventListener('click', () => {
+        if (readyGuard) { clearInterval(readyGuard); readyGuard = null; }
+        removeRest();
+        const v = mainVideo();
+        if (v) v.play().catch(() => {});
+      });
+    }
+
+    // Hold the video paused until the user explicitly clicks Start.
+    pauseAllVideos();
+    if (readyGuard) clearInterval(readyGuard);
+    readyGuard = setInterval(() => {
+      if (!document.getElementById(REST_ID)) { clearInterval(readyGuard); readyGuard = null; return; }
+      pauseAllVideos();
+    }, 500);
   }
 
   // ---- heads-up warning (sleepy brain, pauses the video) ----
@@ -354,5 +395,5 @@
     if (v) v.play().catch(() => {});
   }
 
-  window.__KidLimiter = { showGauge, showGaugeFrozen, showRest, showHeadsUp, clearAll, resume };
+  window.__KidLimiter = { showGauge, showGaugeFrozen, showRest, showReady, showHeadsUp, clearAll, resume };
 })();

@@ -57,6 +57,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.cmd === 'showGauge') K.showGauge(msg.remainingMs, msg.totalMs);
   else if (msg.cmd === 'showGaugeFrozen') K.showGaugeFrozen(msg.remainingMs, msg.totalMs);
   else if (msg.cmd === 'showRest') K.showRest(msg.remainingMs, msg.totalMs);
+  else if (msg.cmd === 'ready') K.showReady();
   else if (msg.cmd === 'headsUp') K.showHeadsUp(msg.minutesLeft);
   else if (msg.cmd === 'hideGauge') K.clearAll();
   else if (msg.cmd === 'clear') K.clearAll();

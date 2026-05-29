@@ -115,6 +115,12 @@
   background: rgba(124, 131, 255, 0.18) !important;
   border: 1px solid rgba(124, 131, 255, 0.4) !important; border-radius: 999px !important;
 }
+#kidlimiter-rest .kl-btn {
+  margin-top: 16px !important; padding: 12px 28px !important;
+  font-size: 18px !important; font-weight: 700 !important; cursor: pointer !important;
+  border: none !important; border-radius: 999px !important; background: #6b6bff !important; color: #fff !important;
+}
+#kidlimiter-rest .kl-btn:hover { filter: brightness(1.1) !important; }
 
 /* Heads-up warning screen (sleepy brain + Continue) */
 #kidlimiter-headsup {

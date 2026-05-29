@@ -136,11 +136,11 @@ async function enterRest(now, tabId) {
 async function enterWatch(now) {
   const s = await getState();
   if (s.phase !== 'resting') return;
-  const triggerTab = s.restTabId;
   await chrome.storage.local.set({ phase: 'idle', restStart: null, accumulatedUsed: 0, lastPlayStart: null, restTabId: null, warned: [] });
   await chrome.alarms.clear(ALARMS.REST);
-  await broadcast({ cmd: 'clear' });
-  if (triggerTab) sendToTab(triggerTab, { cmd: 'resume' }); // auto-resume the video that triggered the break
+  // Mind recharged — show the "Start watching" screen but do NOT autoplay. The kid
+  // must click Start, which resumes the video and begins a fresh counting cycle.
+  await broadcast({ cmd: 'ready' });
   await refreshBadge();
 }
 
