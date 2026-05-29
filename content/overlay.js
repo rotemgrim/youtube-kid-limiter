@@ -177,6 +177,16 @@
     if (gaugeTimer) clearInterval(gaugeTimer);
     let prevLeft = null;
     const update = () => {
+      // The gauge is authoritative on real playback: usage time must only drain
+      // while a video is actually playing. If nothing is playing (e.g. the video
+      // stayed paused after a rest ended, or a pause event never reached the
+      // background), freeze here and tell the background to stop the clock.
+      const playing = [...document.querySelectorAll('video')].some((v) => !v.paused && !v.ended);
+      if (!playing) {
+        chrome.runtime.sendMessage({ type: 'videoPaused' }).catch(() => {});
+        showGaugeFrozen(Math.max(0, endTime - Date.now()), totalMs);
+        return;
+      }
       const left = endTime - Date.now();
       const level = Math.max(0, Math.min(1, left / totalMs));
       paintGauge(node, level, left);
