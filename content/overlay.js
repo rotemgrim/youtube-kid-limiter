@@ -15,18 +15,6 @@
     'M50 12 C30 12 18 24 18 40 C8 44 8 60 20 64 C18 78 34 88 50 84 ' +
     'C66 88 82 78 80 64 C92 60 92 44 82 40 C82 24 70 12 50 12 Z';
 
-  const KID_SVG = `
-    <svg class="kl-kid" viewBox="0 0 120 120" width="150" height="150" aria-hidden="true">
-      <ellipse cx="60" cy="104" rx="46" ry="9" fill="rgba(0,0,0,0.25)"/>
-      <circle cx="60" cy="60" r="40" fill="#ffd9a8"/>
-      <path d="M22 52 q38 -34 76 0 q-2 -40 -38 -40 q-36 0 -38 40 Z" fill="#6b4bd6"/>
-      <path d="M40 62 q9 9 18 0" stroke="#5c3b1e" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-      <path d="M62 62 q9 9 18 0" stroke="#5c3b1e" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-      <circle cx="40" cy="74" r="6" fill="#ff9d9d" opacity="0.6"/>
-      <circle cx="80" cy="74" r="6" fill="#ff9d9d" opacity="0.6"/>
-      <path d="M50 84 q10 8 20 0" stroke="#5c3b1e" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-    </svg>`;
-
   const BRAIN_SVG = `
     <svg class="kl-brain" viewBox="0 0 100 100" width="150" height="150" aria-hidden="true">
       <defs><clipPath id="kl-brain-clip"><path d="${BRAIN_PATH}"/></clipPath></defs>
@@ -51,6 +39,39 @@
 
   function root() {
     return document.body || document.documentElement;
+  }
+
+  // ---- background scenes (upscaled Ghibli art in assets/<category>/) ----
+  // Counts must match the files shipped in assets/. One is picked at random.
+  const SCENE_COUNTS = { night: 10, day: 8, reminder: 6 };
+
+  function sceneUrl(category) {
+    const n = SCENE_COUNTS[category];
+    if (!n) return null;
+    const idx = 1 + Math.floor(Math.random() * n);
+    const name = `${category}-${String(idx).padStart(2, '0')}.jpg`;
+    try { return chrome.runtime.getURL(`assets/${category}/${name}`); }
+    catch (_) { return null; }
+  }
+
+  // 6 PM and later -> a sleeping-kid "night" scene; earlier -> a daytime activity.
+  function restCategory() {
+    return new Date().getHours() >= 18 ? 'night' : 'day';
+  }
+
+  // Paint a random scene as a full-bleed background, with a dark scrim on top so
+  // the white text and brain stay readable over any image.
+  function applyScene(node, category) {
+    const url = sceneUrl(category);
+    if (!url) return;
+    // The base CSS sets `background: <gradient> !important` on these screens, so we
+    // must override with !important too (inline !important beats author !important).
+    node.style.setProperty('background-image',
+      `linear-gradient(rgba(11,10,28,0.55), rgba(11,10,28,0.78)), url("${url}")`,
+      'important');
+    node.style.setProperty('background-size', 'cover', 'important');
+    node.style.setProperty('background-position', 'center', 'important');
+    node.style.setProperty('background-repeat', 'no-repeat', 'important');
   }
 
   // The gauge already renders over fullscreen video; in fullscreen we just move it
@@ -201,12 +222,6 @@
     return el(`
       <div id="${REST_ID}" class="kl-rest">
         <div class="kl-rest-card">
-          <div class="kl-scene">
-            ${KID_SVG}
-            <span class="kl-z z1">z</span><span class="kl-z z2">z</span><span class="kl-z z3">z</span>
-            <span class="kl-dream d1">⭐</span><span class="kl-dream d2">💡</span>
-            <span class="kl-dream d3">❤️</span><span class="kl-dream d4">☁️</span>
-          </div>
           <div class="kl-brainwrap">${BRAIN_SVG}<div class="kl-brain-pct">0%</div></div>
           <h1 class="kl-title">Time to rest your mind</h1>
           <p class="kl-sub">Good dreams are recharging your brain…</p>
@@ -230,7 +245,7 @@
     removeGauge();
     pauseAllVideos();
     let node = document.getElementById(REST_ID);
-    if (!node) { node = buildRest(); root().appendChild(node); }
+    if (!node) { node = buildRest(); applyScene(node, restCategory()); root().appendChild(node); }
     const endTime = Date.now() + remainingMs;
     if (restTimer) clearInterval(restTimer);
     const update = () => {
@@ -284,6 +299,7 @@
     pauseAllVideos();
     removeHeadsUp();
     const node = buildHeadsUp(minutesLeft);
+    applyScene(node, 'reminder');
     root().appendChild(node);
     node.querySelector('#kl-hu-continue').addEventListener('click', () => {
       removeHeadsUp();

@@ -2,5 +2,14 @@ node_modules/
 build/
 dist/
 
+# ComfyUI icon-generation scratch (workflows, candidates, probes)
+.comfyui/
+.ckpt.json
+.unet.json
+.clip.json
+.clip1.json
+.vae.json
+
 # Extension signing key — fixes the extension ID. Keep it safe and OUT of git.
 key.pem
+/.idea/

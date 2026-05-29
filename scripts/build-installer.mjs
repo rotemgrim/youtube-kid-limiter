@@ -24,6 +24,7 @@ import {
   existsSync, mkdirSync, rmSync, writeFileSync, readFileSync, copyFileSync, renameSync,
 } from 'node:fs';
 import { createHash, createPublicKey, generateKeyPairSync } from 'node:crypto';
+import os from 'node:os';
 import path from 'node:path';
 import { ROOT, readManifest, stageTo } from './stage.mjs';
 
@@ -38,12 +39,17 @@ const buildDir = path.join(ROOT, 'build');
 const staging = path.join(buildDir, 'installer-ext');
 const payload = path.join(buildDir, 'installer-payload'); // files IExpress will bundle
 const distDir = path.join(ROOT, 'dist');
-const keyPath = path.join(ROOT, 'key.pem');
+// The signing key must live OUTSIDE the extension folder — Chrome warns if a
+// key.pem sits inside a folder loaded unpacked. Default to a user-level location;
+// override with KIDLIMITER_KEY if you keep it elsewhere.
+const keyPath = process.env.KIDLIMITER_KEY
+  || path.join(os.homedir(), '.youtube-kid-limiter', 'key.pem');
 const exePath = path.join(distDir, 'KidLimiter-Setup.exe');
 
 // ---- 1. signing key (stable extension ID) ----
 if (!existsSync(keyPath)) {
-  console.log('No key.pem found — generating a new signing key (keep this file!).');
+  console.log(`No key found at ${keyPath} — generating a new signing key (keep it!).`);
+  mkdirSync(path.dirname(keyPath), { recursive: true });
   const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   // Chrome's --pack-extension-key requires a PKCS#8-format PEM RSA key.
   writeFileSync(keyPath, privateKey.export({ type: 'pkcs8', format: 'pem' }));

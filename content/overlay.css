@@ -70,7 +70,14 @@
   font-family: system-ui, sans-serif !important;
   color: #fff !important;
 }
-#kidlimiter-rest .kl-rest-card { text-align: center !important; padding: 24px !important; max-width: 90vw !important; }
+#kidlimiter-rest .kl-rest-card {
+  text-align: center !important; padding: 28px 36px !important; max-width: 90vw !important;
+  background: rgba(11, 10, 28, 0.42) !important;
+  border: 1px solid rgba(124, 131, 255, 0.25) !important;
+  border-radius: 24px !important;
+  backdrop-filter: blur(3px) !important; -webkit-backdrop-filter: blur(3px) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45) !important;
+}
 #kidlimiter-rest .kl-scene { position: relative !important; display: inline-block !important; margin-bottom: 8px !important; }
 #kidlimiter-rest .kl-kid { animation: kl-breathe 4s ease-in-out infinite !important; }
 
@@ -121,7 +128,14 @@
   font-family: system-ui, sans-serif !important;
   color: #fff !important;
 }
-#kidlimiter-headsup .kl-headsup-card { text-align: center !important; padding: 24px !important; max-width: 90vw !important; }
+#kidlimiter-headsup .kl-headsup-card {
+  text-align: center !important; padding: 28px 36px !important; max-width: 90vw !important;
+  background: rgba(11, 10, 28, 0.42) !important;
+  border: 1px solid rgba(124, 131, 255, 0.25) !important;
+  border-radius: 24px !important;
+  backdrop-filter: blur(3px) !important; -webkit-backdrop-filter: blur(3px) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45) !important;
+}
 #kidlimiter-headsup .kl-scene { position: relative !important; display: inline-block !important; margin-bottom: 8px !important; }
 #kidlimiter-headsup .kl-brain { filter: drop-shadow(0 0 12px rgba(240, 160, 80, 0.45)) !important; animation: kl-breathe 4s ease-in-out infinite !important; }
 #kidlimiter-headsup .kl-emoji { position: absolute !important; top: -4px !important; right: -8px !important; font-size: 40px !important; }

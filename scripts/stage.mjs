@@ -16,6 +16,7 @@ export const RUNTIME_ENTRIES = [
   'popup',
   'lib',
   'icons',
+  'assets',
 ];
 
 export function readManifest() {
