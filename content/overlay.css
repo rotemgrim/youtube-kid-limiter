@@ -1,0 +1,146 @@
+/* All selectors are namespaced under #kidlimiter-* and use !important to resist YouTube's CSS. */
+
+#kidlimiter-gauge {
+  position: fixed !important;
+  right: 16px !important;
+  bottom: 18px !important;
+  z-index: 2147483646 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 6px 10px !important;
+  background: rgba(20, 22, 38, 0.92) !important;
+  border: 1px solid rgba(124, 131, 255, 0.5) !important;
+  border-radius: 11px !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35) !important;
+  font-family: system-ui, sans-serif !important;
+  color: #fff !important;
+  pointer-events: none !important;
+}
+/* Fullscreen: move the gauge to the top-right so it doesn't cover the playback controls. */
+#kidlimiter-gauge.kl-fs {
+  top: 18px !important;
+  bottom: auto !important;
+}
+#kidlimiter-gauge .kl-gauge-brainwrap { position: relative !important; flex: none !important; }
+#kidlimiter-gauge .kl-gauge-brain { display: block !important; filter: drop-shadow(0 0 6px rgba(70, 209, 96, 0.35)) !important; }
+#kidlimiter-gauge .kl-particles {
+  position: absolute !important;
+  left: 0 !important; right: 0 !important; top: 92% !important;
+  height: 26px !important;
+  pointer-events: none !important;
+  overflow: visible !important;
+}
+#kidlimiter-gauge .kl-particle {
+  position: absolute !important;
+  top: 0 !important;
+  border-radius: 50% !important;
+  pointer-events: none !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.75) !important;
+  animation: kl-leak 0.8s ease-in forwards !important;
+}
+@keyframes kl-leak {
+  0% { opacity: 0.9; transform: translate(var(--dx, 0), 0) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx, 0), 22px) scale(0.3); }
+}
+#kidlimiter-gauge #kl-gauge-fill { transition: y 0.25s linear, height 0.25s linear, fill 0.25s linear !important; }
+#kidlimiter-gauge .kl-gauge-body { display: flex !important; flex-direction: column !important; gap: 1px !important; line-height: 1.15 !important; }
+#kidlimiter-gauge .kl-gauge-label { font-size: 10px !important; opacity: 0.75 !important; letter-spacing: 0.2px !important; }
+#kidlimiter-gauge .kl-gauge-time { font-size: 12px !important; font-weight: 700 !important; }
+
+/* Final-stretch warning: pulse + red glow */
+#kidlimiter-gauge.kl-warn {
+  border-color: rgba(255, 80, 80, 0.9) !important;
+  animation: kl-pulse 1s ease-in-out infinite !important;
+}
+#kidlimiter-gauge.kl-warn .kl-gauge-time { color: #ff8a8a !important; }
+@keyframes kl-pulse {
+  0%, 100% { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(255, 60, 60, 0.5); }
+  50% { box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35), 0 0 18px 6px rgba(255, 60, 60, 0.7); }
+}
+
+#kidlimiter-rest {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: radial-gradient(circle at 50% 30%, #2a2350 0%, #14122b 60%, #0b0a1c 100%) !important;
+  font-family: system-ui, sans-serif !important;
+  color: #fff !important;
+}
+#kidlimiter-rest .kl-rest-card { text-align: center !important; padding: 24px !important; max-width: 90vw !important; }
+#kidlimiter-rest .kl-scene { position: relative !important; display: inline-block !important; margin-bottom: 8px !important; }
+#kidlimiter-rest .kl-kid { animation: kl-breathe 4s ease-in-out infinite !important; }
+
+#kidlimiter-rest .kl-z {
+  position: absolute !important; font-size: 26px !important; font-weight: 700 !important;
+  color: #cdd2ff !important; opacity: 0 !important;
+}
+#kidlimiter-rest .kl-z.z1 { top: 6px !important; right: 4px !important; animation: kl-float 3s ease-in infinite !important; }
+#kidlimiter-rest .kl-z.z2 { top: -8px !important; right: 22px !important; font-size: 32px !important; animation: kl-float 3s ease-in infinite 1s !important; }
+#kidlimiter-rest .kl-z.z3 { top: -22px !important; right: 44px !important; font-size: 40px !important; animation: kl-float 3s ease-in infinite 2s !important; }
+
+#kidlimiter-rest .kl-dream {
+  position: absolute !important; font-size: 24px !important; opacity: 0 !important;
+}
+#kidlimiter-rest .kl-dream.d1 { left: -10px !important; bottom: 30px !important; animation: kl-drift 5s ease-in-out infinite !important; }
+#kidlimiter-rest .kl-dream.d2 { left: 40px !important; bottom: 10px !important; animation: kl-drift 5s ease-in-out infinite 1.2s !important; }
+#kidlimiter-rest .kl-dream.d3 { right: 30px !important; bottom: 20px !important; animation: kl-drift 5s ease-in-out infinite 2.4s !important; }
+#kidlimiter-rest .kl-dream.d4 { right: -6px !important; bottom: 40px !important; animation: kl-drift 5s ease-in-out infinite 3.6s !important; }
+
+#kidlimiter-rest .kl-brainwrap { position: relative !important; display: inline-block !important; margin: 8px 0 !important; }
+#kidlimiter-rest .kl-brain { filter: drop-shadow(0 0 12px rgba(70, 209, 96, 0.4)) !important; }
+#kidlimiter-rest #kl-brain-fill { transition: y 0.25s linear, height 0.25s linear !important; }
+#kidlimiter-rest .kl-brain-pct {
+  position: absolute !important; top: 50% !important; left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  font-size: 26px !important; font-weight: 800 !important; color: #fff !important;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6) !important;
+}
+
+#kidlimiter-rest .kl-title { font-size: 30px !important; margin: 12px 0 6px !important; font-weight: 800 !important; }
+#kidlimiter-rest .kl-sub { font-size: 16px !important; opacity: 0.85 !important; margin: 0 0 14px !important; }
+#kidlimiter-rest .kl-count {
+  font-size: 20px !important; font-weight: 700 !important;
+  padding: 8px 18px !important; display: inline-block !important;
+  background: rgba(124, 131, 255, 0.18) !important;
+  border: 1px solid rgba(124, 131, 255, 0.4) !important; border-radius: 999px !important;
+}
+
+/* Heads-up warning screen (sleepy brain + Continue) */
+#kidlimiter-headsup {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: radial-gradient(circle at 50% 35%, #2a2350 0%, #14122b 60%, #0b0a1c 100%) !important;
+  font-family: system-ui, sans-serif !important;
+  color: #fff !important;
+}
+#kidlimiter-headsup .kl-headsup-card { text-align: center !important; padding: 24px !important; max-width: 90vw !important; }
+#kidlimiter-headsup .kl-scene { position: relative !important; display: inline-block !important; margin-bottom: 8px !important; }
+#kidlimiter-headsup .kl-brain { filter: drop-shadow(0 0 12px rgba(240, 160, 80, 0.45)) !important; animation: kl-breathe 4s ease-in-out infinite !important; }
+#kidlimiter-headsup .kl-emoji { position: absolute !important; top: -4px !important; right: -8px !important; font-size: 40px !important; }
+#kidlimiter-headsup .kl-z {
+  position: absolute !important; font-size: 26px !important; font-weight: 700 !important;
+  color: #cdd2ff !important; opacity: 0 !important;
+}
+#kidlimiter-headsup .kl-z.z1 { top: 6px !important; right: 8px !important; animation: kl-float 3s ease-in infinite !important; }
+#kidlimiter-headsup .kl-z.z2 { top: -8px !important; right: 26px !important; font-size: 32px !important; animation: kl-float 3s ease-in infinite 1s !important; }
+#kidlimiter-headsup .kl-z.z3 { top: -22px !important; right: 48px !important; font-size: 40px !important; animation: kl-float 3s ease-in infinite 2s !important; }
+#kidlimiter-headsup .kl-title { font-size: 32px !important; margin: 12px 0 6px !important; font-weight: 800 !important; }
+#kidlimiter-headsup .kl-sub { font-size: 16px !important; opacity: 0.85 !important; margin: 0 0 8px !important; }
+#kidlimiter-headsup .kl-btn {
+  margin-top: 16px !important; padding: 12px 28px !important;
+  font-size: 18px !important; font-weight: 700 !important; cursor: pointer !important;
+  border: none !important; border-radius: 999px !important; background: #6b6bff !important; color: #fff !important;
+}
+#kidlimiter-headsup .kl-btn:hover { filter: brightness(1.1) !important; }
+
+@keyframes kl-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes kl-float { 0% { opacity: 0; transform: translateY(0) scale(0.8); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(-30px) scale(1.1); } }
+@keyframes kl-drift { 0% { opacity: 0; transform: translateY(0); } 25% { opacity: 0.9; } 100% { opacity: 0; transform: translateY(-60px); } }

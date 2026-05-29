@@ -1,0 +1,6 @@
+node_modules/
+build/
+dist/
+
+# Extension signing key — fixes the extension ID. Keep it safe and OUT of git.
+key.pem

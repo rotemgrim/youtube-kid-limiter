@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="wrap">
+    <h1>🧠 YouTube Kid Limiter</h1>
+
+    <div id="status" class="status">Loading…</div>
+
+    <div class="field">
+      <label for="usageTime">Watch time (minutes)</label>
+      <input type="number" id="usageTime" min="1" max="600" value="20">
+    </div>
+    <div class="field">
+      <label for="breakTime">Rest time (minutes)</label>
+      <input type="number" id="breakTime" min="1" max="1440" value="10">
+    </div>
+    <div class="field">
+      <label for="difficulty">Math lock difficulty</label>
+      <select id="difficulty">
+        <option value="easy">Easy (single-digit add)</option>
+        <option value="medium" selected>Medium (2-digit / times tables)</option>
+        <option value="hard">Hard (2-digit multiply)</option>
+      </select>
+    </div>
+
+    <button id="save" class="btn primary">Save settings</button>
+    <button id="skip" class="btn" hidden>Skip current rest</button>
+    <button id="off" class="btn ghost">Turn off protection</button>
+
+    <p class="hint">Settings, skipping a rest, and turning off protection all require solving a math problem.</p>
+  </div>
+
+  <!-- Math lock modal -->
+  <div id="mathModal" class="modal" hidden>
+    <div class="modal-card">
+      <h2>Parent check</h2>
+      <p class="prob" id="problem">…</p>
+      <input type="number" id="answer" placeholder="Answer" autocomplete="off">
+      <div id="mathError" class="err" hidden>Not quite — try this one.</div>
+      <div class="modal-actions">
+        <button id="mathCancel" class="btn ghost">Cancel</button>
+        <button id="mathOk" class="btn primary">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../lib/math-lock.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
