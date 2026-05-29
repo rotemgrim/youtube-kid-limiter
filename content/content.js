@@ -4,14 +4,32 @@ function notify(type) {
   chrome.runtime.sendMessage({ type }).catch(() => {});
 }
 
+// The real YouTube player — not a hidden/preview <video> that querySelector('video')
+// might return first. Time should only count for this element.
+function mainVideo() {
+  return document.querySelector('video.html5-main-video, video.video-stream')
+    || document.querySelector('.html5-video-player video')
+    || document.querySelector('video');
+}
+
+function mainPlaying() {
+  const v = mainVideo();
+  return !!(v && !v.paused && !v.ended);
+}
+
+// Report based on the MAIN player's state, regardless of which element fired the event.
+function report() {
+  notify(mainPlaying() ? 'videoPlaying' : 'videoPaused');
+}
+
 function bind(video) {
   if (video.__klBound) return;
   video.__klBound = true;
-  video.addEventListener('play', () => notify('videoPlaying'));
-  video.addEventListener('pause', () => notify('videoPaused'));
-  video.addEventListener('ended', () => notify('videoPaused'));
+  video.addEventListener('play', report);
+  video.addEventListener('pause', report);
+  video.addEventListener('ended', report);
   // The video may already be playing (autoplay) before we attached the listener.
-  if (!video.paused && !video.ended) notify('videoPlaying');
+  if (mainPlaying()) notify('videoPlaying');
 }
 
 function scan() {
@@ -26,14 +44,12 @@ new MutationObserver(scan).observe(document.documentElement, { childList: true, 
 // or the gauge got removed, re-assert the playing state. Idempotent in the background.
 setInterval(() => {
   scan();
-  const playing = [...document.querySelectorAll('video')].some((v) => !v.paused && !v.ended && v.currentTime > 0);
-  if (playing) notify('videoPlaying');
+  if (mainPlaying()) notify('videoPlaying');
 }, 3000);
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.cmd === 'checkVideoStatus') {
-    const playing = [...document.querySelectorAll('video')].some((v) => !v.paused && !v.ended);
-    sendResponse({ isPlaying: playing });
+    sendResponse({ isPlaying: mainPlaying() });
     return;
   }
   const K = window.__KidLimiter;

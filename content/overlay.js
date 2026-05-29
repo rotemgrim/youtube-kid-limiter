@@ -91,6 +91,21 @@
     document.querySelectorAll('video').forEach((v) => { if (!v.paused) v.pause(); });
   }
 
+  // The real YouTube player — not a hidden/preview <video> that querySelector('video')
+  // might return first. Falls back to the first video element if the class isn't found.
+  function mainVideo() {
+    return document.querySelector('video.html5-main-video, video.video-stream')
+      || document.querySelector('.html5-video-player video')
+      || document.querySelector('video');
+  }
+
+  // True only when the MAIN player is actually playing. Avoids counting time because
+  // a stray/hidden video element reports itself as not-paused.
+  function videoIsPlaying() {
+    const v = mainVideo();
+    return !!(v && !v.paused && !v.ended);
+  }
+
   // Gentle two-note chime synthesized in-page (no bundled audio file needed).
   function playChime() {
     try {
@@ -181,8 +196,7 @@
       // while a video is actually playing. If nothing is playing (e.g. the video
       // stayed paused after a rest ended, or a pause event never reached the
       // background), freeze here and tell the background to stop the clock.
-      const playing = [...document.querySelectorAll('video')].some((v) => !v.paused && !v.ended);
-      if (!playing) {
+      if (!videoIsPlaying()) {
         chrome.runtime.sendMessage({ type: 'videoPaused' }).catch(() => {});
         showGaugeFrozen(Math.max(0, endTime - Date.now()), totalMs);
         return;
@@ -313,7 +327,7 @@
     root().appendChild(node);
     node.querySelector('#kl-hu-continue').addEventListener('click', () => {
       removeHeadsUp();
-      const v = document.querySelector('video');
+      const v = mainVideo();
       if (v) v.play().catch(() => {});
     });
     // Keep the video paused (and the screen present) until the kid clicks Continue.
@@ -336,7 +350,7 @@
 
   function resume() {
     clearAll();
-    const v = document.querySelector('video');
+    const v = mainVideo();
     if (v) v.play().catch(() => {});
   }
 
