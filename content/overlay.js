@@ -313,6 +313,8 @@
       pauseAllVideos();
     }, 500);
     playChime();
+    // Final (2-minute) warning: chime twice, one after the other, for extra nudge.
+    if (minutesLeft <= 2) setTimeout(playChime, 700);
   }
 
   function removeHeadsUp() {
