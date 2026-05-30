@@ -9,8 +9,8 @@
 // Then they reopen Chrome and the extension is force-installed (and locked on).
 //
 // Requirements (build machine, Windows only):
-//   - Google Chrome installed (used to pack the .crx)
-//   - IExpress (built into Windows)
+//   - IExpress (built into Windows) to make the self-extracting .exe
+//   The .crx itself is packed in pure Node (no Chrome needed).
 //
 // Notes:
 //   - key.pem (project root) is the signing key. It fixes the extension ID and is
@@ -21,9 +21,11 @@
 
 import { execFileSync } from 'node:child_process';
 import {
-  existsSync, mkdirSync, rmSync, writeFileSync, readFileSync, copyFileSync, renameSync,
+  existsSync, mkdirSync, rmSync, writeFileSync, readFileSync, copyFileSync,
 } from 'node:fs';
-import { createHash, createPublicKey, generateKeyPairSync } from 'node:crypto';
+import {
+  createHash, createPublicKey, createSign, generateKeyPairSync,
+} from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { ROOT, readManifest, stageTo } from './stage.mjs';
@@ -70,45 +72,70 @@ function extensionId(privatePem) {
 const id = extensionId(readFileSync(keyPath, 'utf8'));
 console.log(`Extension ID: ${id}`);
 
-// ---- 2. pack the crx with Chrome ----
-function findChrome() {
-  const candidates = [
-    path.join(process.env['ProgramFiles'] || '', 'Google/Chrome/Application/chrome.exe'),
-    path.join(process.env['ProgramFiles(x86)'] || '', 'Google/Chrome/Application/chrome.exe'),
-    path.join(process.env['LOCALAPPDATA'] || '', 'Google/Chrome/Application/chrome.exe'),
-  ];
-  return candidates.find((p) => p && existsSync(p));
-}
-const chrome = findChrome();
-if (!chrome) {
-  console.error('Could not find chrome.exe. Install Google Chrome, then re-run.');
-  process.exit(1);
-}
+// ---- 2. pack the crx ourselves (no Chrome needed) ----
+// A CRX3 file is: magic "Cr24" + version(3) + headerLength + CrxFileHeader proto
+// + the extension zip. We build all of it from the key with node:crypto, so the
+// build runs anywhere (including headless CI) without spawning a browser.
 
 console.log('Staging extension files...');
 stageTo(staging);
 
-console.log('Packing .crx with Chrome...');
-// Chrome writes <staging>.crx next to the staging dir. Use a throwaway profile so
-// the pack runs in a fresh instance instead of being forwarded to (and ignored by)
-// an already-running Chrome. Tolerate the non-zero exit it sometimes returns.
-const tmpProfile = path.join(buildDir, 'chrome-pack-profile');
-rmSync(tmpProfile, { recursive: true, force: true });
-try {
-  execFileSync(chrome, [
-    `--pack-extension=${staging}`,
-    `--pack-extension-key=${keyPath}`,
-    `--user-data-dir=${tmpProfile}`,
-    '--no-first-run',
-    '--no-default-browser-check',
+// Zip the staging dir contents (manifest.json at the zip root).
+const zipForCrx = path.join(buildDir, 'installer-ext.zip');
+rmSync(zipForCrx, { force: true });
+if (process.platform === 'win32') {
+  execFileSync('powershell', ['-NoProfile', '-Command',
+    `Compress-Archive -Path '${path.join(staging, '*')}' -DestinationPath '${zipForCrx}' -Force`,
   ], { stdio: 'pipe' });
-} catch (_) { /* Chrome may exit non-zero while still producing the crx */ }
-rmSync(tmpProfile, { recursive: true, force: true });
-const producedCrx = `${staging}.crx`;
-if (!existsSync(producedCrx)) {
-  console.error('Chrome did not produce a .crx. Try closing all Chrome windows and re-run.');
-  process.exit(1);
+} else {
+  execFileSync('zip', ['-r', '-q', zipForCrx, '.'], { cwd: staging, stdio: 'pipe' });
 }
+const zipBytes = readFileSync(zipForCrx);
+
+// --- minimal protobuf writers (varint + length-delimited fields) ---
+function varint(n) {
+  const out = [];
+  while (n > 0x7f) { out.push((n & 0x7f) | 0x80); n >>>= 7; }
+  out.push(n);
+  return Buffer.from(out);
+}
+// field tag = (fieldNumber << 3) | wireType; wireType 2 = length-delimited.
+function lenField(fieldNumber, buf) {
+  return Buffer.concat([varint((fieldNumber << 3) | 2), varint(buf.length), buf]);
+}
+
+const privatePem = readFileSync(keyPath, 'utf8');
+const publicKeyDer = createPublicKey(privatePem).export({ type: 'spki', format: 'der' });
+
+// CRX3 signs SHA256("CRX3 SignedData\0" + len(signedHeader) + signedHeader + zip).
+// signedHeader is a SignedData proto: field 1 = crx_id (first 16 bytes of the
+// sha256 of the public key DER).
+const crxId = createHash('sha256').update(publicKeyDer).digest().subarray(0, 16);
+const signedHeaderData = lenField(1, crxId);
+
+const signedHeaderLen = Buffer.alloc(4);
+signedHeaderLen.writeUInt32LE(signedHeaderData.length, 0);
+
+const signer = createSign('sha256');
+signer.update(Buffer.from('CRX3 SignedData\0', 'binary'));
+signer.update(signedHeaderLen);
+signer.update(signedHeaderData);
+signer.update(zipBytes);
+const signature = signer.sign(privatePem);
+
+// AsymmetricKeyProof proto: field 1 = public_key, field 2 = signature.
+const proof = Buffer.concat([lenField(1, publicKeyDer), lenField(2, signature)]);
+// CrxFileHeader proto: field 2 = sha256_with_rsa (repeated AsymmetricKeyProof),
+// field 10000 = signed_header_data (the SignedData bytes).
+const header = Buffer.concat([lenField(2, proof), lenField(10000, signedHeaderData)]);
+
+const magic = Buffer.from('Cr24', 'binary');
+const ver = Buffer.alloc(4); ver.writeUInt32LE(3, 0);
+const headerLen = Buffer.alloc(4); headerLen.writeUInt32LE(header.length, 0);
+
+const producedCrx = path.join(buildDir, 'installer-ext.crx');
+writeFileSync(producedCrx, Buffer.concat([magic, ver, headerLen, header, zipBytes]));
+console.log(`Packed .crx (${(zipBytes.length / 1024).toFixed(0)} KB extension).`);
 
 // ---- 3. assemble the IExpress payload (crx + install scripts) ----
 rmSync(payload, { recursive: true, force: true });
