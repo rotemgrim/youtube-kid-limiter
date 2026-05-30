@@ -10,6 +10,12 @@
   let restTimer = null;
   let headsupGuard = null;
   let readyGuard = null;
+  // Remaining-ms from the previous gauge tick, used to detect the downward crossing of
+  // each warning threshold. Kept at module scope (not inside showGauge) so it SURVIVES
+  // gauge restarts — the 3s safety-net poll and freeze/thaw both re-call showGauge many
+  // times per session, and resetting this per call would drop the 5:00 / 2:00 crossing.
+  // Reset to null only when a genuinely new cycle starts (clear / rest / ready).
+  let lastLeft = null;
 
   // A blobby "mind" shape used for the refilling brain.
   const BRAIN_PATH =
@@ -206,7 +212,6 @@
     node.querySelector('.kl-gauge-label').textContent = 'Mind energy';
     const endTime = Date.now() + remainingMs;
     if (gaugeTimer) clearInterval(gaugeTimer);
-    let prevLeft = null;
     const update = () => {
       // The gauge is authoritative on real playback: usage time must only drain
       // while a video is actually playing. If nothing is playing (e.g. the video
@@ -221,15 +226,17 @@
       const level = Math.max(0, Math.min(1, left / totalMs));
       paintGauge(node, level, left);
       spawnParticles(node, level);
-      // Fire a warning once, on the downward crossing of each threshold.
-      if (prevLeft != null) {
+      // Fire a warning once, on the downward crossing of each threshold. lastLeft is
+      // module-scoped so a gauge restart mid-session (3s poll re-send, freeze/thaw)
+      // doesn't lose the previous tick and drop the crossing.
+      if (lastLeft != null) {
         for (const T of WARN_THRESHOLDS) {
-          if (T < totalMs && prevLeft > T && left <= T) {
+          if (T < totalMs && lastLeft > T && left <= T) {
             chrome.runtime.sendMessage({ type: 'maybeWarn', threshold: T }).catch(() => {});
           }
         }
       }
-      prevLeft = left;
+      lastLeft = left;
       if (left <= 0) {
         clearInterval(gaugeTimer); gaugeTimer = null;
         chrome.runtime.sendMessage({ type: 'drainComplete' }).catch(() => {});
@@ -320,6 +327,7 @@
   function showRest(remainingMs, totalMs, treats, earnedBonuses) {
     removeGauge();
     pauseAllVideos();
+    lastLeft = null; // new cycle — start threshold-crossing detection fresh next watch
     let node = document.getElementById(REST_ID);
     if (!node) { node = buildRest(); applyScene(node, restCategory()); root().appendChild(node); }
     paintBonusTray(node, treats || [], earnedBonuses || {});
@@ -439,7 +447,7 @@
     document.getElementById(HEADSUP_ID)?.remove();
   }
 
-  function clearAll() { removeGauge(); removeRest(); removeHeadsUp(); }
+  function clearAll() { lastLeft = null; removeGauge(); removeRest(); removeHeadsUp(); }
 
   function resume() {
     clearAll();
