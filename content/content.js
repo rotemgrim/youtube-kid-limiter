@@ -70,7 +70,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!K) return;
   if (msg.cmd === 'showGauge') K.showGauge(msg.remainingMs, msg.totalMs);
   else if (msg.cmd === 'showGaugeFrozen') K.showGaugeFrozen(msg.remainingMs, msg.totalMs);
-  else if (msg.cmd === 'showRest') K.showRest(msg.remainingMs, msg.totalMs);
+  else if (msg.cmd === 'showRest') K.showRest(msg.remainingMs, msg.totalMs, msg.treats || [], msg.earnedBonuses || {});
   else if (msg.cmd === 'ready') K.showReady();
   else if (msg.cmd === 'headsUp') K.showHeadsUp(msg.minutesLeft);
   else if (msg.cmd === 'hideGauge') K.clearAll();
@@ -84,6 +84,6 @@ chrome.runtime.sendMessage({ type: 'getState' }).then((r) => {
   if (!r || !K) return;
   if (r.cmd === 'showGauge') K.showGauge(r.remainingMs, r.totalMs);
   else if (r.cmd === 'showGaugeFrozen') K.showGaugeFrozen(r.remainingMs, r.totalMs);
-  else if (r.cmd === 'showRest') K.showRest(r.remainingMs, r.totalMs);
+  else if (r.cmd === 'showRest') K.showRest(r.remainingMs, r.totalMs, r.treats || [], r.earnedBonuses || {});
   else K.clearAll();
 }).catch(() => {});

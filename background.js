@@ -15,13 +15,21 @@ const DEFAULT_TREATS = [
 ];
 
 const SETTING_DEFAULTS = { usageTime: 20, breakTime: 10, difficulty: 'medium', enabled: true, treats: DEFAULT_TREATS };
-const RUNTIME_DEFAULTS = { phase: 'idle', accumulatedUsed: 0, lastPlayStart: null, restStart: null, restTabId: null, warned: [], bonusMs: 0 };
+// earnedBonuses: { [treatId]: count } — banked treat earnings. Persists across rest/watch
+//   cycles so the kid can spend them on the rest screen. Cleared only on a hard reset
+//   (turn off/on, save settings).
+// sessionBudgetMs: when non-null, overrides the base watch budget for the next session
+//   (used when a bonus is spent on the rest screen — that session lasts only the treat's
+//   minutes). Cleared when a rest begins.
+const RUNTIME_DEFAULTS = { phase: 'idle', accumulatedUsed: 0, lastPlayStart: null, restStart: null, restTabId: null, warned: [], bonusMs: 0, earnedBonuses: {}, sessionBudgetMs: null };
 
 const minToMs = (m) => m * 60 * 1000;
 
-// Total watch budget for a session = the configured usage time plus any banked bonus
-// (reward) minutes. Bonus is spent within the session and reset when a rest begins.
-const usageBudgetMs = (s) => minToMs(s.usageTime) + (s.bonusMs || 0);
+// Total watch budget for a session = base (usageTime, or a one-shot session override)
+// plus any live bonus minutes added during this session. bonusMs is wiped at rest start;
+// earnedBonuses (per-treat counts) persist separately and are spent on the rest screen.
+const baseBudgetMs = (s) => (s.sessionBudgetMs != null ? s.sessionBudgetMs : minToMs(s.usageTime));
+const usageBudgetMs = (s) => baseBudgetMs(s) + (s.bonusMs || 0);
 
 chrome.runtime.onInstalled.addListener(async () => {
   const all = { ...SETTING_DEFAULTS, ...RUNTIME_DEFAULTS };
@@ -109,7 +117,10 @@ async function onVideoPlaying(tabId) {
   if (s.phase === 'resting') {
     const remaining = minToMs(s.breakTime) - (now - s.restStart);
     if (remaining <= 0) { await enterWatch(now); return; }
-    sendToTab(tabId, { cmd: 'showRest', remainingMs: remaining, totalMs: minToMs(s.breakTime) });
+    sendToTab(tabId, {
+      cmd: 'showRest', remainingMs: remaining, totalMs: minToMs(s.breakTime),
+      treats: s.treats || [], earnedBonuses: s.earnedBonuses || {},
+    });
     return;
   }
 
@@ -141,11 +152,14 @@ async function enterRest(now, tabId) {
   const s = await getState();
   if (s.phase === 'resting') return;
   await chrome.storage.local.set({
-    phase: 'resting', restStart: now, accumulatedUsed: 0, lastPlayStart: null, restTabId: tabId ?? null, bonusMs: 0,
+    phase: 'resting', restStart: now, accumulatedUsed: 0, lastPlayStart: null, restTabId: tabId ?? null, bonusMs: 0, sessionBudgetMs: null,
   });
   await chrome.alarms.clear(ALARMS.DRAIN);
   await chrome.alarms.create(ALARMS.REST, { delayInMinutes: Math.max(minToMs(s.breakTime), 1000) / 60000 });
-  await broadcast({ cmd: 'showRest', remainingMs: minToMs(s.breakTime), totalMs: minToMs(s.breakTime) });
+  await broadcast({
+    cmd: 'showRest', remainingMs: minToMs(s.breakTime), totalMs: minToMs(s.breakTime),
+    treats: s.treats || [], earnedBonuses: s.earnedBonuses || {},
+  });
   await refreshBadge();
 }
 
@@ -181,7 +195,7 @@ async function onMaybeWarn(tabId, threshold) {
 async function saveSettings({ usageTime, breakTime, difficulty }) {
   await chrome.storage.local.set({
     usageTime, breakTime, difficulty,
-    enabled: true, phase: 'idle', accumulatedUsed: 0, lastPlayStart: null, restStart: null, restTabId: null, warned: [], bonusMs: 0,
+    enabled: true, phase: 'idle', accumulatedUsed: 0, lastPlayStart: null, restStart: null, restTabId: null, warned: [], bonusMs: 0, earnedBonuses: {}, sessionBudgetMs: null,
   });
   await chrome.alarms.clearAll();
   await broadcast({ cmd: 'clear' });
@@ -189,14 +203,14 @@ async function saveSettings({ usageTime, breakTime, difficulty }) {
 }
 
 async function turnOff() {
-  await chrome.storage.local.set({ enabled: false, phase: 'idle', accumulatedUsed: 0, lastPlayStart: null, restStart: null, restTabId: null, warned: [], bonusMs: 0 });
+  await chrome.storage.local.set({ enabled: false, phase: 'idle', accumulatedUsed: 0, lastPlayStart: null, restStart: null, restTabId: null, warned: [], bonusMs: 0, earnedBonuses: {}, sessionBudgetMs: null });
   await chrome.alarms.clearAll();
   await broadcast({ cmd: 'clear' });
   await refreshBadge();
 }
 
 async function turnOn() {
-  await chrome.storage.local.set({ enabled: true, phase: 'idle', accumulatedUsed: 0, lastPlayStart: null, restStart: null, restTabId: null, warned: [], bonusMs: 0 });
+  await chrome.storage.local.set({ enabled: true, phase: 'idle', accumulatedUsed: 0, lastPlayStart: null, restStart: null, restTabId: null, warned: [], bonusMs: 0, earnedBonuses: {}, sessionBudgetMs: null });
   await chrome.alarms.clearAll();
   await broadcast({ cmd: 'clear' });
   await refreshBadge();
@@ -207,24 +221,52 @@ async function saveTreats(treats) {
   await chrome.storage.local.set({ treats });
 }
 
-// Bank reward minutes earned from a treat. If a video is currently playing we extend the
-// live countdown by re-arming the drain alarm and refreshing the gauge; otherwise the
-// bonus simply enlarges the budget for the next time a video plays.
-async function addBonus(minutes) {
+// Bank a treat that the kid earned (parent already passed the math lock in the popup).
+// Earnings always bank — never live-extend the current watch — so each treat is worth
+// exactly one bonus session, spent later by tapping the tile on the rest screen.
+async function claimTreat(treatId) {
   const s = await getState();
   if (!s.enabled) return;
-  const add = Math.max(0, Number(minutes) || 0) * 60000;
-  if (!add) return;
-  const bonusMs = (s.bonusMs || 0) + add;
-  await chrome.storage.local.set({ bonusMs });
+  const treat = (s.treats || []).find((t) => t.id === treatId);
+  if (!treat) return;
+  const earnedBonuses = { ...(s.earnedBonuses || {}) };
+  earnedBonuses[treatId] = (earnedBonuses[treatId] || 0) + 1;
+  await chrome.storage.local.set({ earnedBonuses });
 
-  if (s.phase === 'watching' && s.lastPlayStart) {
-    const ns = { ...s, bonusMs };
-    const remaining = usageBudgetMs(ns) - (s.accumulatedUsed + (Date.now() - s.lastPlayStart));
-    await chrome.alarms.clear(ALARMS.DRAIN);
-    await chrome.alarms.create(ALARMS.DRAIN, { delayInMinutes: Math.max(remaining, 1000) / 60000 });
-    await broadcast({ cmd: 'showGauge', remainingMs: remaining, totalMs: usageBudgetMs(ns) });
+  // Refresh the rest screen so the new earning shows up in the tile row right away.
+  if (s.phase === 'resting' && s.restStart) {
+    const remaining = minToMs(s.breakTime) - (Date.now() - s.restStart);
+    await broadcast({
+      cmd: 'showRest', remainingMs: Math.max(0, remaining), totalMs: minToMs(s.breakTime),
+      treats: s.treats || [], earnedBonuses,
+    });
   }
+}
+
+// Spend one earned bonus from the rest screen: end the break immediately and start a
+// new watch session whose budget is JUST that treat's minutes (per the chosen
+// "skip rest, watch with bonus" semantics).
+async function useTreatOnRest(treatId) {
+  const s = await getState();
+  if (!s.enabled || s.phase !== 'resting') return;
+  const treat = (s.treats || []).find((t) => t.id === treatId);
+  if (!treat) return;
+  const earnedBonuses = { ...(s.earnedBonuses || {}) };
+  const count = earnedBonuses[treatId] || 0;
+  if (count <= 0) return;
+  earnedBonuses[treatId] = count - 1;
+  if (earnedBonuses[treatId] === 0) delete earnedBonuses[treatId];
+
+  await chrome.alarms.clear(ALARMS.REST);
+  await chrome.storage.local.set({
+    phase: 'idle', restStart: null, restTabId: null, accumulatedUsed: 0, lastPlayStart: null,
+    warned: [], bonusMs: 0, earnedBonuses,
+    sessionBudgetMs: Math.max(1, Number(treat.minutes) || 1) * 60000,
+  });
+  await refreshBadge();
+  // Clear the rest overlay and resume the paused video on the watching tab(s);
+  // onVideoPlaying will then start counting against the one-shot bonus budget.
+  await broadcast({ cmd: 'resume' });
 }
 
 // ---- render / status snapshots ----
@@ -235,7 +277,10 @@ async function computeRender() {
   if (s.phase === 'resting') {
     const remaining = minToMs(s.breakTime) - (now - s.restStart);
     if (remaining <= 0) { await enterWatch(now); return { cmd: 'clear' }; }
-    return { cmd: 'showRest', remainingMs: remaining, totalMs: minToMs(s.breakTime) };
+    return {
+      cmd: 'showRest', remainingMs: remaining, totalMs: minToMs(s.breakTime),
+      treats: s.treats || [], earnedBonuses: s.earnedBonuses || {},
+    };
   }
   if (s.phase === 'watching' && s.lastPlayStart) {
     const remaining = usageBudgetMs(s) - (s.accumulatedUsed + (now - s.lastPlayStart));
@@ -258,6 +303,7 @@ async function computeStatus() {
     enabled: s.enabled, phase: s.phase, remainingMs,
     usageTime: s.usageTime, breakTime: s.breakTime, difficulty: s.difficulty,
     treats: s.treats || DEFAULT_TREATS, bonusMs: s.bonusMs || 0,
+    earnedBonuses: s.earnedBonuses || {},
   };
 }
 
@@ -283,7 +329,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       case 'turnOff': await turnOff(); sendResponse({ ok: true }); return;
       case 'turnOn': await turnOn(); sendResponse({ ok: true }); return;
       case 'skipBreak': await enterWatch(Date.now()); sendResponse({ ok: true }); return;
-      case 'addBonus': await addBonus(msg.minutes); sendResponse({ ok: true }); return;
+      case 'claimTreat': await claimTreat(msg.treatId); sendResponse({ ok: true }); return;
+      case 'useTreatOnRest': await useTreatOnRest(msg.treatId); sendResponse({ ok: true }); return;
       case 'saveTreats': await saveTreats(msg.treats); sendResponse({ ok: true }); return;
     }
   })();

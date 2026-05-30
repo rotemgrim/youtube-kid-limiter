@@ -266,8 +266,44 @@
           <h1 class="kl-title">Time to rest your mind</h1>
           <p class="kl-sub">Good dreams are recharging your brain…</p>
           <div class="kl-count"></div>
+          <div class="kl-bonus-tray" hidden>
+            <div class="kl-bonus-title">Use an earned bonus to skip the rest</div>
+            <div class="kl-bonus-grid"></div>
+          </div>
         </div>
       </div>`);
+  }
+
+  // Render the row of treat tiles on the rest screen. Earned treats (count > 0) are
+  // colored and tappable; unearned treats are grayed out. Tapping spends one earning
+  // and ends the rest (background starts a new watch session for that treat's minutes).
+  function paintBonusTray(node, treats, earnedBonuses) {
+    const tray = node.querySelector('.kl-bonus-tray');
+    const grid = node.querySelector('.kl-bonus-grid');
+    if (!tray || !grid) return;
+    const list = Array.isArray(treats) ? treats : [];
+    if (!list.length) { tray.hidden = true; return; }
+    tray.hidden = false;
+    grid.replaceChildren();
+    for (const t of list) {
+      const count = (earnedBonuses && earnedBonuses[t.id]) || 0;
+      const tile = document.createElement('button');
+      tile.className = 'kl-bonus-tile' + (count > 0 ? '' : ' kl-bonus-locked');
+      tile.disabled = count <= 0;
+      tile.innerHTML =
+        `<span class="kl-bonus-emoji">${t.emoji || '🎁'}</span>` +
+        `<span class="kl-bonus-label"></span>` +
+        `<span class="kl-bonus-min">+${t.minutes} min</span>` +
+        (count > 1 ? `<span class="kl-bonus-x">x${count}</span>` : '');
+      tile.querySelector('.kl-bonus-label').textContent = t.label;
+      if (count > 0) {
+        tile.addEventListener('click', () => {
+          tile.disabled = true; // prevent double-tap during the transition
+          chrome.runtime.sendMessage({ type: 'useTreatOnRest', treatId: t.id }).catch(() => {});
+        });
+      }
+      grid.appendChild(tile);
+    }
   }
 
   function paintRest(node, level, leftMs) {
@@ -281,11 +317,12 @@
     node.querySelector('.kl-count').textContent = fmt(leftMs) + ' until your mind is ready';
   }
 
-  function showRest(remainingMs, totalMs) {
+  function showRest(remainingMs, totalMs, treats, earnedBonuses) {
     removeGauge();
     pauseAllVideos();
     let node = document.getElementById(REST_ID);
     if (!node) { node = buildRest(); applyScene(node, restCategory()); root().appendChild(node); }
+    paintBonusTray(node, treats || [], earnedBonuses || {});
     const endTime = Date.now() + remainingMs;
     if (restTimer) clearInterval(restTimer);
     const update = () => {

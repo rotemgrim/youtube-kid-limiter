@@ -58,9 +58,17 @@ async function refreshStatus() {
 
   $('skip').hidden = !(st.enabled && st.phase === 'resting');
 
-  // Treats screen: banked-bonus banner + the grid of tiles.
+  // Treats screen: banked-bonus banner + the grid of tiles. The banner sums the minutes
+  // represented by all earned (but not yet spent) treats — these persist across rest
+  // cycles and can be spent on the rest screen.
   const bank = $('bank');
-  const bonusMin = Math.round((st.bonusMs || 0) / 60000);
+  const earned = st.earnedBonuses || {};
+  const treatById = Object.fromEntries((st.treats || []).map((t) => [t.id, t]));
+  let bonusMin = 0;
+  for (const [id, count] of Object.entries(earned)) {
+    const t = treatById[id];
+    if (t) bonusMin += (Number(t.minutes) || 0) * (Number(count) || 0);
+  }
   if (bonusMin > 0) { bank.hidden = false; bank.textContent = `🔋 ${bonusMin} bonus min banked`; }
   else { bank.hidden = true; }
 
@@ -80,7 +88,7 @@ function renderTreats() {
       `<span class="treat-min">+${t.minutes} min</span>`;
     tile.querySelector('.treat-label').textContent = t.label;
     tile.addEventListener('click', () => requireMath(async () => {
-      await chrome.runtime.sendMessage({ type: 'addBonus', minutes: t.minutes });
+      await chrome.runtime.sendMessage({ type: 'claimTreat', treatId: t.id });
       flash(`Earned +${t.minutes} min! 🎉`);
     }));
     grid.appendChild(tile);

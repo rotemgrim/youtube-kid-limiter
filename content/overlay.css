@@ -122,6 +122,61 @@
 }
 #kidlimiter-rest .kl-btn:hover { filter: brightness(1.1) !important; }
 
+/* Earned-bonus tray on the rest screen */
+#kidlimiter-rest .kl-bonus-tray {
+  margin-top: 22px !important;
+  padding-top: 16px !important;
+  border-top: 1px solid rgba(124, 131, 255, 0.25) !important;
+}
+#kidlimiter-rest .kl-bonus-tray[hidden] { display: none !important; }
+#kidlimiter-rest .kl-bonus-title {
+  font-size: 14px !important; font-weight: 600 !important;
+  opacity: 0.85 !important; margin-bottom: 10px !important;
+}
+#kidlimiter-rest .kl-bonus-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 10px !important;
+  max-width: 460px !important;
+  margin: 0 auto !important;
+}
+#kidlimiter-rest .kl-bonus-tile {
+  position: relative !important;
+  display: flex !important; flex-direction: column !important;
+  align-items: center !important; gap: 4px !important;
+  padding: 10px 6px !important;
+  border: 1px solid rgba(124, 131, 255, 0.4) !important;
+  border-radius: 14px !important;
+  background: rgba(31, 29, 61, 0.85) !important;
+  color: #fff !important; cursor: pointer !important; text-align: center !important;
+  font-family: system-ui, sans-serif !important;
+  transition: transform 0.1s, filter 0.1s !important;
+}
+#kidlimiter-rest .kl-bonus-tile:hover:not(:disabled) { transform: translateY(-2px) !important; filter: brightness(1.15) !important; }
+#kidlimiter-rest .kl-bonus-tile:active:not(:disabled) { transform: translateY(0) !important; }
+#kidlimiter-rest .kl-bonus-tile.kl-bonus-locked {
+  filter: grayscale(1) !important;
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+#kidlimiter-rest .kl-bonus-emoji { font-size: 26px !important; line-height: 1 !important; }
+#kidlimiter-rest .kl-bonus-label { font-size: 11px !important; line-height: 1.2 !important; min-height: 26px !important; }
+#kidlimiter-rest .kl-bonus-min {
+  font-size: 11px !important; font-weight: 700 !important;
+  color: #46d160 !important;
+  background: rgba(70, 209, 96, 0.14) !important;
+  border-radius: 8px !important; padding: 2px 8px !important;
+}
+#kidlimiter-rest .kl-bonus-x {
+  position: absolute !important;
+  top: -8px !important; right: -8px !important;
+  background: #6b6bff !important; color: #fff !important;
+  font-size: 12px !important; font-weight: 800 !important;
+  padding: 2px 7px !important; border-radius: 999px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+}
+
 /* Heads-up warning screen (sleepy brain + Continue) */
 #kidlimiter-headsup {
   position: fixed !important;
