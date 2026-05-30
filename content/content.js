@@ -4,12 +4,26 @@ function notify(type) {
   chrome.runtime.sendMessage({ type }).catch(() => {});
 }
 
-// The real YouTube player — not a hidden/preview <video> that querySelector('video')
-// might return first. Time should only count for this element.
+// The video the user is actually watching. Picking by CSS class is unreliable —
+// Shorts preload several <video class="html5-main-video"> elements at once, so
+// querySelector would return a paused, off-screen one and time would never count.
+// Instead we score every video by (is-playing, is-on-screen, area) and take the best.
 function mainVideo() {
-  return document.querySelector('video.html5-main-video, video.video-stream')
-    || document.querySelector('.html5-video-player video')
-    || document.querySelector('video');
+  const vids = [...document.querySelectorAll('video')];
+  if (!vids.length) return null;
+  const big = vids.filter((v) => {
+    const r = v.getBoundingClientRect();
+    return r.width >= 200 && r.height >= 150;
+  });
+  const cands = big.length ? big : vids;
+  const score = (v) => {
+    const r = v.getBoundingClientRect();
+    const playing = (!v.paused && !v.ended) ? 1 : 0;
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const onScreen = (cx >= 0 && cx <= innerWidth && cy >= 0 && cy <= innerHeight) ? 1 : 0;
+    return playing * 1e12 + onScreen * 1e9 + r.width * r.height;
+  };
+  return cands.reduce((best, v) => (score(v) > score(best) ? v : best), cands[0]);
 }
 
 function mainPlaying() {
