@@ -5,7 +5,17 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div class="wrap">
+  <!-- ===== Treats (default kid-facing view) ===== -->
+  <section id="view-treats" class="wrap">
+    <h1>🎁 Earn watch time</h1>
+    <p class="bank" id="bank" hidden></p>
+    <div id="treatGrid" class="treat-grid"></div>
+    <a id="toSettings" class="link link-foot">Settings ⚙️</a>
+  </section>
+
+  <!-- ===== Settings (parent view) ===== -->
+  <section id="view-settings" class="wrap" hidden>
+    <a id="settingsBack" class="link">← Treats</a>
     <h1>🧠 YouTube Kid Limiter</h1>
 
     <div id="status" class="status">Loading…</div>
@@ -31,10 +41,21 @@
     <button id="skip" class="btn" hidden>Skip current rest</button>
     <button id="off" class="btn ghost">Turn off protection</button>
 
-    <p class="hint">Settings, skipping a rest, and turning off protection all require solving a math problem.</p>
-  </div>
+    <a id="toEditor" class="link link-foot">Edit treats →</a>
 
-  <!-- Math lock modal -->
+    <p class="hint">Settings, skipping a rest, turning off protection, claiming a treat, and editing treats all require solving a math problem.</p>
+  </section>
+
+  <!-- ===== Treat editor (parent view) ===== -->
+  <section id="view-editor" class="wrap" hidden>
+    <a id="editorBack" class="link">← Settings</a>
+    <h1>✏️ Edit treats</h1>
+    <div id="editorRows" class="editor-rows"></div>
+    <button id="saveTreats" class="btn primary">Save treats</button>
+    <p class="hint">Each treat banks the given number of minutes when claimed. Emoji is set from the label for now.</p>
+  </section>
+
+  <!-- Math lock modal (shared across views) -->
   <div id="mathModal" class="modal" hidden>
     <div class="modal-card">
       <h2>Parent check</h2>

@@ -6,9 +6,25 @@ function fmt(ms) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+// A relevant emoji for a treat. Stored treats may carry an `emoji`; fall back to a gift.
+function treatEmoji(t) {
+  return t.emoji || '🎁';
+}
+
+// ---- view switching ----
+const VIEWS = ['view-treats', 'view-settings', 'view-editor'];
+function show(id) {
+  for (const v of VIEWS) $(v).hidden = (v !== id);
+}
+
+// ---- shared state pulled from the background ----
+let treats = [];
+
 async function refreshStatus() {
   const st = await chrome.runtime.sendMessage({ type: 'getStatus' });
   if (!st) return;
+  treats = st.treats || [];
+
   $('usageTime').value = st.usageTime;
   $('breakTime').value = st.breakTime;
   $('difficulty').value = st.difficulty;
@@ -41,6 +57,74 @@ async function refreshStatus() {
   }
 
   $('skip').hidden = !(st.enabled && st.phase === 'resting');
+
+  // Treats screen: banked-bonus banner + the grid of tiles.
+  const bank = $('bank');
+  const bonusMin = Math.round((st.bonusMs || 0) / 60000);
+  if (bonusMin > 0) { bank.hidden = false; bank.textContent = `🔋 ${bonusMin} bonus min banked`; }
+  else { bank.hidden = true; }
+
+  renderTreats();
+}
+
+// ---- treats grid (kid-facing) ----
+function renderTreats() {
+  const grid = $('treatGrid');
+  grid.replaceChildren();
+  for (const t of treats) {
+    const tile = document.createElement('button');
+    tile.className = 'treat';
+    tile.innerHTML =
+      `<span class="treat-emoji">${treatEmoji(t)}</span>` +
+      `<span class="treat-label"></span>` +
+      `<span class="treat-min">+${t.minutes} min</span>`;
+    tile.querySelector('.treat-label').textContent = t.label;
+    tile.addEventListener('click', () => requireMath(async () => {
+      await chrome.runtime.sendMessage({ type: 'addBonus', minutes: t.minutes });
+      flash(`Earned +${t.minutes} min! 🎉`);
+    }));
+    grid.appendChild(tile);
+  }
+}
+
+// Brief confirmation toast on the treats screen.
+let flashTimer = null;
+function flash(text) {
+  const bank = $('bank');
+  bank.hidden = false;
+  bank.textContent = text;
+  bank.classList.add('flash');
+  if (flashTimer) clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { bank.classList.remove('flash'); refreshStatus(); }, 1500);
+}
+
+// ---- treat editor (parent-facing) ----
+function renderEditor() {
+  const wrap = $('editorRows');
+  wrap.replaceChildren();
+  treats.forEach((t, i) => {
+    const row = document.createElement('div');
+    row.className = 'editor-row';
+    row.innerHTML =
+      `<span class="treat-emoji sm">${treatEmoji(t)}</span>` +
+      `<input class="er-label" type="text" maxlength="40">` +
+      `<input class="er-min" type="number" min="1" max="600">`;
+    row.querySelector('.er-label').value = t.label;
+    row.querySelector('.er-min').value = t.minutes;
+    row.dataset.idx = i;
+    wrap.appendChild(row);
+  });
+}
+
+function collectEditor() {
+  return [...$('editorRows').children].map((row) => {
+    const i = Number(row.dataset.idx);
+    return {
+      ...treats[i],
+      label: row.querySelector('.er-label').value.trim() || treats[i].label,
+      minutes: Math.max(1, parseInt(row.querySelector('.er-min').value, 10) || 1),
+    };
+  });
 }
 
 // ---- math lock ----
@@ -77,7 +161,13 @@ $('mathOk').addEventListener('click', async () => {
 $('answer').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('mathOk').click(); });
 $('mathCancel').addEventListener('click', () => { $('mathModal').hidden = true; pendingAction = null; });
 
-// ---- actions ----
+// ---- navigation ----
+$('toSettings').addEventListener('click', () => show('view-settings'));
+$('settingsBack').addEventListener('click', () => show('view-treats'));
+$('toEditor').addEventListener('click', () => { renderEditor(); show('view-editor'); });
+$('editorBack').addEventListener('click', () => show('view-settings'));
+
+// ---- settings actions ----
 $('save').addEventListener('click', () => requireMath(async () => {
   await chrome.runtime.sendMessage({
     type: 'saveSettings',
@@ -101,6 +191,15 @@ $('off').addEventListener('click', async () => {
 
 $('skip').addEventListener('click', () => requireMath(async () => {
   await chrome.runtime.sendMessage({ type: 'skipBreak' });
+}));
+
+// ---- editor save (math-locked) ----
+$('saveTreats').addEventListener('click', () => requireMath(async () => {
+  const next = collectEditor();
+  await chrome.runtime.sendMessage({ type: 'saveTreats', treats: next });
+  treats = next;
+  renderTreats();
+  show('view-treats');
 }));
 
 refreshStatus();
