@@ -1,0 +1,63 @@
+name: Build and Release
+
+# On every push to master, build the store zip + Windows installer and publish
+# them as a GitHub Release. Runs on Windows because the installer build needs
+# Chrome (to pack the .crx) and IExpress (to make the self-extracting .exe).
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write # needed to create releases and push tags
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Read extension version
+        id: version
+        shell: pwsh
+        run: |
+          $version = (Get-Content manifest.json -Raw | ConvertFrom-Json).version
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Restore signing key
+        shell: pwsh
+        env:
+          KIDLIMITER_KEY_PEM: ${{ secrets.KIDLIMITER_KEY }}
+        run: |
+          # The signing key fixes the extension ID so Chrome treats new builds as
+          # updates to the installed copy. Stored as a secret; written here to a
+          # file because build-installer.mjs expects KIDLIMITER_KEY to be a path.
+          if (-not $env:KIDLIMITER_KEY_PEM) {
+            Write-Error 'KIDLIMITER_KEY secret is not set — add it in repo Settings > Secrets > Actions.'
+            exit 1
+          }
+          Set-Content -Path key.pem -Value $env:KIDLIMITER_KEY_PEM -Encoding ascii -NoNewline
+
+      - name: Build store bundle and installer
+        env:
+          KIDLIMITER_KEY: key.pem
+        run: npm run build
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}-${{ github.run_number }}
+          name: YouTube Kid Limiter v${{ steps.version.outputs.version }}
+          body: |
+            Automated release from commit ${{ github.sha }}.
+
+            - `KidLimiter-Setup.exe` — double-click installer (Windows + Chrome).
+            - `youtube-kid-limiter-v${{ steps.version.outputs.version }}.zip` — Chrome Web Store upload bundle.
+          files: |
+            dist/KidLimiter-Setup.exe
+            dist/youtube-kid-limiter-v${{ steps.version.outputs.version }}.zip
