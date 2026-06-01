@@ -269,7 +269,7 @@
     return el(`
       <div id="${REST_ID}" class="kl-rest">
         <div class="kl-rest-card">
-          <div class="kl-brainwrap">${BRAIN_SVG}<div class="kl-brain-pct">0%</div></div>
+          <div class="kl-brainwrap">${BRAIN_SVG}<div class="kl-rest-particles"></div><div class="kl-brain-pct">0%</div></div>
           <h1 class="kl-title">Time to rest your mind</h1>
           <p class="kl-sub">Good dreams are recharging your brain…</p>
           <div class="kl-count"></div>
@@ -313,6 +313,27 @@
     }
   }
 
+  // Gather "mind energy" particles inward, drawn from the edges into the brain as
+  // it recharges — the visual inverse of the gauge's leak. Pulls a little harder as
+  // the brain fills, so the absorption feels like it's building toward full.
+  function spawnRestParticles(node, level) {
+    const layer = node.querySelector('.kl-rest-particles');
+    if (!layer) return;
+    const count = 1 + (level > 0.5 ? 1 : 0); // gather harder past the halfway mark
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div');
+      p.className = 'kl-rest-particle';
+      const size = 3 + Math.random() * 3;
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 80 + Math.random() * 40; // start out beyond the brain edge
+      p.style.width = p.style.height = size.toFixed(1) + 'px';
+      p.style.setProperty('--sx', (Math.cos(angle) * dist).toFixed(0) + 'px');
+      p.style.setProperty('--sy', (Math.sin(angle) * dist).toFixed(0) + 'px');
+      layer.appendChild(p);
+      setTimeout(() => p.remove(), 1100);
+    }
+  }
+
   function paintRest(node, level, leftMs) {
     const rect = node.querySelector('#kl-brain-fill');
     if (rect) {
@@ -344,7 +365,9 @@
         showReady(); // brain full — wait for the kid to click before resuming
         return;
       }
-      paintRest(node, Math.max(0, Math.min(1, 1 - left / totalMs)), left);
+      const level = Math.max(0, Math.min(1, 1 - left / totalMs));
+      paintRest(node, level, left);
+      spawnRestParticles(node, level);
     };
     update();
     restTimer = setInterval(update, 250);
