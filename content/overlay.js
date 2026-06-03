@@ -10,6 +10,10 @@
   let restTimer = null;
   let headsupGuard = null;
   let readyGuard = null;
+  // Where the watched video was paused when the break began. YouTube unloads the
+  // player buffer during a long pause (and the SPA may swap the <video>), resetting
+  // currentTime to 0 — so we remember the spot and seek back to it on resume.
+  let savedPlayback = null;
 
   // A blobby "mind" shape used for the refilling brain.
   const BRAIN_PATH =
@@ -90,6 +94,28 @@
 
   function pauseAllVideos() {
     document.querySelectorAll('video').forEach((v) => { if (!v.paused) v.pause(); });
+  }
+
+  // Remember the current spot of the watched video so we can return to it after the
+  // break. Guarded by currentTime > 1 so a video that YouTube already reset to 0
+  // (e.g. after a page reload mid-break) never overwrites a good saved position.
+  function capturePlayback() {
+    const v = mainVideo();
+    if (v && v.currentTime > 1) {
+      savedPlayback = { src: v.currentSrc || v.src, time: v.currentTime };
+    }
+  }
+
+  // Resume the watched video, seeking back to the saved spot if YouTube rewound it.
+  function resumePlayback() {
+    const v = mainVideo();
+    if (!v) return;
+    if (savedPlayback && (v.currentSrc || v.src) === savedPlayback.src
+        && Math.abs(v.currentTime - savedPlayback.time) > 2) {
+      try { v.currentTime = savedPlayback.time; } catch (_) {}
+    }
+    savedPlayback = null;
+    v.play().catch(() => {});
   }
 
   // The video the user is actually watching. Picking by CSS class is unreliable —
@@ -319,6 +345,7 @@
 
   function showRest(remainingMs, totalMs, treats, earnedBonuses) {
     removeGauge();
+    capturePlayback(); // remember the spot before we pause it for the break
     pauseAllVideos();
     let node = document.getElementById(REST_ID);
     if (!node) { node = buildRest(); applyScene(node, restCategory()); root().appendChild(node); }
@@ -371,8 +398,7 @@
       btn.addEventListener('click', () => {
         if (readyGuard) { clearInterval(readyGuard); readyGuard = null; }
         removeRest();
-        const v = mainVideo();
-        if (v) v.play().catch(() => {});
+        resumePlayback(); // seek back to where the break interrupted us
       });
     }
 
@@ -443,8 +469,7 @@
 
   function resume() {
     clearAll();
-    const v = mainVideo();
-    if (v) v.play().catch(() => {});
+    resumePlayback(); // seek back to where the break interrupted us
   }
 
   window.__KidLimiter = { showGauge, showGaugeFrozen, showRest, showReady, showHeadsUp, clearAll, resume };
