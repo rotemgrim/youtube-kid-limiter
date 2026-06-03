@@ -5,6 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "node --test \"tests/**/*.test.mjs\"",
     "build:store": "node scripts/build-store.mjs",
     "build:installer": "node scripts/build-installer.mjs",
     "build": "npm run build:store && npm run build:installer"
