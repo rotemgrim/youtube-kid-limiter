@@ -22,6 +22,9 @@ jobs:
         with:
           node-version: 20
 
+      - name: Install dependencies
+        run: npm ci
+
       - name: Read extension version
         id: version
         shell: pwsh
@@ -29,24 +32,28 @@ jobs:
           $version = (Get-Content manifest.json -Raw | ConvertFrom-Json).version
           "version=$version" >> $env:GITHUB_OUTPUT
 
-      - name: Restore signing key
-        shell: pwsh
-        env:
-          KIDLIMITER_KEY_PEM: ${{ secrets.KIDLIMITER_KEY }}
-        run: |
-          # The signing key fixes the extension ID so Chrome treats new builds as
-          # updates to the installed copy. Stored as a secret; written here to a
-          # file because build-installer.mjs expects KIDLIMITER_KEY to be a path.
-          if (-not $env:KIDLIMITER_KEY_PEM) {
-            Write-Error 'KIDLIMITER_KEY secret is not set — add it in repo Settings > Secrets > Actions.'
-            exit 1
-          }
-          Set-Content -Path key.pem -Value $env:KIDLIMITER_KEY_PEM -Encoding ascii -NoNewline
+      # --- Installer build is disabled until the extension is approved on the
+      # Chrome Web Store. Re-enable this block (and the `npm run build` step
+      # below) once KIDLIMITER_WEBSTORE_ID is known and added as a secret.
+      # - name: Restore signing key
+      #   shell: pwsh
+      #   env:
+      #     KIDLIMITER_KEY_PEM: ${{ secrets.KIDLIMITER_KEY }}
+      #   run: |
+      #     if (-not $env:KIDLIMITER_KEY_PEM) {
+      #       Write-Error 'KIDLIMITER_KEY secret is not set — add it in repo Settings > Secrets > Actions.'
+      #       exit 1
+      #     }
+      #     Set-Content -Path key.pem -Value $env:KIDLIMITER_KEY_PEM -Encoding ascii -NoNewline
 
-      - name: Build store bundle and installer
-        env:
-          KIDLIMITER_KEY: key.pem
-        run: npm run build
+      - name: Build store bundle
+        run: npm run build:store
+
+      # - name: Build installer
+      #   env:
+      #     KIDLIMITER_KEY: key.pem
+      #     KIDLIMITER_WEBSTORE_ID: ${{ secrets.KIDLIMITER_WEBSTORE_ID }}
+      #   run: npm run build:installer
 
       - name: Create release
         uses: softprops/action-gh-release@v2
@@ -56,8 +63,8 @@ jobs:
           body: |
             Automated release from commit ${{ github.sha }}.
 
-            - `KidLimiter-Setup.exe` — double-click installer (Windows + Chrome).
             - `youtube-kid-limiter-v${{ steps.version.outputs.version }}.zip` — Chrome Web Store upload bundle.
+            - (Installer build temporarily disabled until the extension is approved on the Chrome Web Store.)
           files: |
-            dist/KidLimiter-Setup.exe
             dist/youtube-kid-limiter-v${{ steps.version.outputs.version }}.zip
+            # dist/KidLimiter-Setup.exe
