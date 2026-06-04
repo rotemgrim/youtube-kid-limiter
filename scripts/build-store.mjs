@@ -3,9 +3,9 @@
 // The zip has manifest.json at its root (required by the store) and contains
 // only the runtime files.
 
-import { execFileSync } from 'node:child_process';
 import { mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
+import AdmZip from 'adm-zip';
 import { ROOT, readManifest, stageTo } from './stage.mjs';
 
 const manifest = readManifest();
@@ -21,18 +21,12 @@ mkdirSync(distDir, { recursive: true });
 rmSync(zipPath, { force: true });
 
 console.log(`Zipping -> ${path.relative(ROOT, zipPath)}`);
-if (process.platform === 'win32') {
-  // Compress the *contents* of staging so manifest.json lands at the zip root.
-  execFileSync(
-    'powershell',
-    ['-NoProfile', '-Command',
-      `Compress-Archive -Path '${path.join(staging, '*')}' -DestinationPath '${zipPath}' -Force`],
-    { stdio: 'inherit' },
-  );
-} else {
-  // zip CLI: -r recurse, '.' so paths are relative to the staging root.
-  execFileSync('zip', ['-r', '-q', zipPath, '.'], { cwd: staging, stdio: 'inherit' });
-}
+// adm-zip writes spec-compliant forward-slash entry paths on every OS (Linux, macOS,
+// Windows), so the staged files — manifest.json at the root — land correctly for the
+// Chrome Web Store without any platform-specific shelling out.
+const zip = new AdmZip();
+zip.addLocalFolder(staging);
+zip.writeZip(zipPath);
 
 console.log('\n✓ Store bundle ready:');
 console.log(`  ${zipPath}`);

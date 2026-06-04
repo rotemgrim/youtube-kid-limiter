@@ -66,6 +66,37 @@ blank while watching.
 
 ---
 
+## Share it with other parents (one-click installer)
+
+"Load unpacked" is fine for your own machine, but you can't hand it to another parent — and Chrome **cannot**
+silently force-install a self-hosted/off-store extension on a normal (unmanaged) PC. Since Chrome 75 that only works
+on managed/enterprise devices, which is why a local-file installer just "does nothing."
+
+The reliable path is to publish to the **Chrome Web Store** (an *Unlisted* listing stays private — only people with the
+link can find it), then ship a tiny installer that force-installs it from the store and **locks it on** so a kid can't
+remove it.
+
+1. **Build the upload bundle:**
+   ```powershell
+   npm run build:store
+   ```
+   This produces `dist/youtube-kid-limiter-v<version>.zip`.
+2. **Upload it** at <https://chrome.google.com/webstore/devconsole> (a one-time $5 developer registration applies).
+   Choose **Unlisted** visibility to keep it private. After it's published, copy the assigned **32-character
+   extension ID**.
+3. **Build the Windows installer**, passing that store ID:
+   ```powershell
+   $env:KIDLIMITER_WEBSTORE_ID="<32-char-id>"; npm run build:installer
+   ```
+   This produces `dist/KidLimiter-Setup.exe`.
+4. **Hand the `.exe` to a parent.** They double-click it, reopen Chrome, and the limiter installs from the Web Store
+   and stays locked on (the 🧠 icon appears within a minute).
+
+> Until the extension is actually published to the store, the installer will force-install an ID that doesn't exist
+> yet — so Chrome silently does nothing. Publish first, then build the installer with the real ID.
+
+---
+
 ## Good to know
 
 This is a **gentle guardrail, not a hardened parental-control product.** It's designed to encourage healthy habits for

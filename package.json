@@ -10,5 +10,8 @@
     "build:installer": "node scripts/build-installer.mjs",
     "build": "npm run build:store && npm run build:installer"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "adm-zip": "^0.5.16"
+  }
 }
