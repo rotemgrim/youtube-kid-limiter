@@ -28,13 +28,20 @@
       <label for="breakTime">Rest time (minutes)</label>
       <input type="number" id="breakTime" min="1" max="1440" value="10">
     </div>
-    <div class="field">
-      <label for="difficulty">Math lock difficulty</label>
-      <select id="difficulty">
-        <option value="easy">Easy (single-digit add)</option>
-        <option value="medium" selected>Medium (2-digit / times tables)</option>
-        <option value="hard">Hard (2-digit multiply)</option>
-      </select>
+    <div class="field math-config">
+      <label>Math lock</label>
+      <div id="mathOps" class="chips">
+        <button type="button" class="chip" data-op="add">Add</button>
+        <button type="button" class="chip" data-op="sub">Subtract</button>
+        <button type="button" class="chip" data-op="mul">Multiply</button>
+      </div>
+      <div class="range-row">
+        <span class="range-lbl">Answer between</span>
+        <input type="number" id="minAnswer" min="0" max="9999" value="8">
+        <span class="range-lbl">and</span>
+        <input type="number" id="maxAnswer" min="0" max="9999" value="14">
+      </div>
+      <p class="example"><span id="mathExample">…</span> <span id="mathReroll" class="reroll" title="New example">↻</span></p>
     </div>
 
     <button id="save" class="btn primary">Save settings</button>

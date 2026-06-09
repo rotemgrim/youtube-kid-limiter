@@ -29,7 +29,7 @@ describe('install / defaults', () => {
     assert.equal(s.phase, 'idle');
     assert.equal(s.usageTime, 20);
     assert.equal(s.breakTime, 10);
-    assert.equal(s.difficulty, 'medium');
+    assert.deepEqual(s.mathConfig, { operations: ['add'], minAnswer: 8, maxAnswer: 14 });
     assert.equal(s.bonusMs, 0);
     assert.equal(s.sessionBudgetMs, null);
     assert.deepEqual(s.warned, []);
@@ -338,11 +338,11 @@ describe('parent actions', () => {
   test('saveSettings updates config and resets the cycle', async () => {
     const h = await fresh({ phase: 'watching', warned: [MIN(5)], earnedBonuses: { t1: 3 } });
     h.clearSent();
-    await h.bg.saveSettings({ usageTime: 30, breakTime: 15, difficulty: 'hard' });
+    await h.bg.saveSettings({ usageTime: 30, breakTime: 15, mathConfig: { operations: ['mul'], minAnswer: 20, maxAnswer: 80 } });
     const s = h.state();
     assert.equal(s.usageTime, 30);
     assert.equal(s.breakTime, 15);
-    assert.equal(s.difficulty, 'hard');
+    assert.deepEqual(s.mathConfig, { operations: ['mul'], minAnswer: 20, maxAnswer: 80 });
     assert.equal(s.enabled, true);
     assert.equal(s.phase, 'idle');
     assert.deepEqual(s.warned, []);

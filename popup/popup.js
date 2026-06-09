@@ -19,6 +19,9 @@ function show(id) {
 
 // ---- shared state pulled from the background ----
 let treats = [];
+// The math-lock config used to GUARD actions (claim treat, save settings, turn off…).
+// Pulled from the saved settings so unsaved edits in the form can't weaken the lock.
+let mathConfig = window.MathLock.DEFAULT_CONFIG;
 
 async function refreshStatus() {
   const st = await chrome.runtime.sendMessage({ type: 'getStatus' });
@@ -27,7 +30,8 @@ async function refreshStatus() {
 
   $('usageTime').value = st.usageTime;
   $('breakTime').value = st.breakTime;
-  $('difficulty').value = st.difficulty;
+  mathConfig = window.MathLock.normalizeConfig(st.mathConfig);
+  writeMathForm(mathConfig);
 
   const offBtn = $('off');
   if (!st.enabled) {
@@ -135,12 +139,52 @@ function collectEditor() {
   });
 }
 
+// ---- math config form (parent-facing) ----
+// Reflect a config object onto the chips + range inputs.
+function writeMathForm(cfg) {
+  for (const chip of $('mathOps').querySelectorAll('.chip')) {
+    chip.classList.toggle('on', cfg.operations.includes(chip.dataset.op));
+  }
+  $('minAnswer').value = cfg.minAnswer;
+  $('maxAnswer').value = cfg.maxAnswer;
+  refreshExample();
+}
+
+// Read the current form into a normalized config.
+function readMathForm() {
+  const operations = [...$('mathOps').querySelectorAll('.chip.on')].map((c) => c.dataset.op);
+  return window.MathLock.normalizeConfig({
+    operations,
+    minAnswer: parseInt($('minAnswer').value, 10),
+    maxAnswer: parseInt($('maxAnswer').value, 10),
+  });
+}
+
+// Show a sample problem for the config currently in the form.
+function refreshExample() {
+  const p = window.MathLock.generateProblem(readMathForm());
+  $('mathExample').textContent = `Example: ${p.text} = ?`;
+}
+
+$('mathOps').addEventListener('click', (e) => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  // Keep at least one operation selected.
+  const on = $('mathOps').querySelectorAll('.chip.on');
+  if (chip.classList.contains('on') && on.length === 1) return;
+  chip.classList.toggle('on');
+  refreshExample();
+});
+$('minAnswer').addEventListener('input', refreshExample);
+$('maxAnswer').addEventListener('input', refreshExample);
+$('mathReroll').addEventListener('click', refreshExample);
+
 // ---- math lock ----
 let pendingAction = null;
 let currentAnswer = null;
 
 function newProblem() {
-  const p = window.MathLock.generateProblem($('difficulty').value);
+  const p = window.MathLock.generateProblem(mathConfig);
   currentAnswer = p.answer;
   $('problem').textContent = p.text + ' = ?';
   $('answer').value = '';
@@ -182,7 +226,7 @@ $('save').addEventListener('click', () => requireMath(async () => {
     settings: {
       usageTime: Math.max(1, parseFloat($('usageTime').value) || 1),
       breakTime: Math.max(1, parseFloat($('breakTime').value) || 1),
-      difficulty: $('difficulty').value,
+      mathConfig: readMathForm(),
     },
   });
 }));

@@ -47,7 +47,7 @@ You control three things from the toolbar popup:
 |--------------------------|-------------------------------------------------------------|---------|
 | **Watch time**           | Minutes of actual viewing before a break                    | 20 min  |
 | **Rest time**            | Length of the break (set long for a daily cap)              | 10 min  |
-| **Math lock difficulty** | How hard the parent-check problem is (easy / medium / hard) | Medium  |
+| **Math lock**            | Allowed operations (add / subtract / multiply) and the range the answer must fall in | Add, 8–14 |
 
 The toolbar icon shows the current state at a glance: **REST** during a break, **OFF** when protection is disabled, and
 blank while watching.

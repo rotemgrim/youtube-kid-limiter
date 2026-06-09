@@ -14,7 +14,11 @@ const DEFAULT_TREATS = [
   { id: 't6', label: 'Bonus treat', minutes: 5, emoji: '🎁' },
 ];
 
-const SETTING_DEFAULTS = { usageTime: 20, breakTime: 10, difficulty: 'medium', enabled: true, treats: DEFAULT_TREATS };
+// mathConfig: parent-tweakable math-lock rules. operations is any of add|sub|mul; the
+// answer to every generated problem lands in [minAnswer, maxAnswer]. See lib/math-lock.js.
+const DEFAULT_MATH_CONFIG = { operations: ['add'], minAnswer: 8, maxAnswer: 14 };
+
+const SETTING_DEFAULTS = { usageTime: 20, breakTime: 10, mathConfig: DEFAULT_MATH_CONFIG, enabled: true, treats: DEFAULT_TREATS };
 // earnedBonuses: { [treatId]: count } — banked treat earnings. Persists across rest/watch
 //   cycles so the kid can spend them on the rest screen. Cleared only on a hard reset
 //   (turn off/on, save settings).
@@ -192,9 +196,9 @@ async function onMaybeWarn(tabId, threshold) {
 }
 
 // ---- popup actions (already verified by the math lock) ----
-async function saveSettings({ usageTime, breakTime, difficulty }) {
+async function saveSettings({ usageTime, breakTime, mathConfig }) {
   await chrome.storage.local.set({
-    usageTime, breakTime, difficulty,
+    usageTime, breakTime, mathConfig: mathConfig || DEFAULT_MATH_CONFIG,
     enabled: true, phase: 'idle', accumulatedUsed: 0, lastPlayStart: null, restStart: null, restTabId: null, warned: [], bonusMs: 0, earnedBonuses: {}, sessionBudgetMs: null,
   });
   await chrome.alarms.clearAll();
@@ -301,7 +305,7 @@ async function computeStatus() {
   else if (s.enabled && s.phase === 'watching' && s.lastPlayStart) remainingMs = usageBudgetMs(s) - (s.accumulatedUsed + (now - s.lastPlayStart));
   return {
     enabled: s.enabled, phase: s.phase, remainingMs,
-    usageTime: s.usageTime, breakTime: s.breakTime, difficulty: s.difficulty,
+    usageTime: s.usageTime, breakTime: s.breakTime, mathConfig: s.mathConfig || DEFAULT_MATH_CONFIG,
     treats: s.treats || DEFAULT_TREATS, bonusMs: s.bonusMs || 0,
     earnedBonuses: s.earnedBonuses || {},
   };
