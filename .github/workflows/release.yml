@@ -64,6 +64,25 @@ jobs:
       - name: Build store bundle
         run: npm run build:store
 
+      # --- Chrome Web Store auto-publish is disabled for now: setting up the
+      # Google OAuth2 credentials is blocked by a Google Cloud project limit.
+      # Re-enable once these repo secrets exist (Settings > Secrets > Actions):
+      #   KIDLIMITER_WEBSTORE_ID      — 32-char published item ID
+      #   KIDLIMITER_CLIENT_ID        — Google OAuth2 client ID
+      #   KIDLIMITER_CLIENT_SECRET    — Google OAuth2 client secret
+      #   KIDLIMITER_REFRESH_TOKEN    — OAuth2 refresh token for the dev account
+      # (KIDLIMITER_KEY — the .pem — is for the local .crx/installer only, NOT this.)
+      # Until then, grab the zip from the GitHub Release created below.
+      # - name: Publish to Chrome Web Store
+      #   uses: mnao305/chrome-extension-upload@4008e29e13c144d0f6725462cbd49b7c291b4928 # v5.0.0
+      #   with:
+      #     file-path: dist/youtube-kid-limiter-v${{ steps.version.outputs.version }}.zip
+      #     extension-id: ${{ secrets.KIDLIMITER_WEBSTORE_ID }}
+      #     client-id: ${{ secrets.KIDLIMITER_CLIENT_ID }}
+      #     client-secret: ${{ secrets.KIDLIMITER_CLIENT_SECRET }}
+      #     refresh-token: ${{ secrets.KIDLIMITER_REFRESH_TOKEN }}
+      #     publish: true
+
       # - name: Build installer
       #   env:
       #     KIDLIMITER_KEY: key.pem
