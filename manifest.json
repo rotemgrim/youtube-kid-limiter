@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YouTube Kid Limiter",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Limits kids' YouTube time with a brain-energy meter and restful breaks. Parent settings are protected by a math exercise.",
   "permissions": [
     "alarms",
