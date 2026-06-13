@@ -140,24 +140,39 @@ function collectEditor() {
 }
 
 // ---- math config form (parent-facing) ----
-// Reflect a config object onto the chips + range inputs.
+// Only the range rows for selected operations stay visible/active.
+function syncRangeVisibility() {
+  const on = new Set([...$('mathOps').querySelectorAll('.chip.on')].map((c) => c.dataset.op));
+  for (const row of $('mathRanges').querySelectorAll('.range-row')) {
+    row.hidden = !on.has(row.dataset.op);
+  }
+}
+
+// Reflect a config object onto the chips + per-op range inputs.
 function writeMathForm(cfg) {
   for (const chip of $('mathOps').querySelectorAll('.chip')) {
     chip.classList.toggle('on', cfg.operations.includes(chip.dataset.op));
   }
-  $('minAnswer').value = cfg.minAnswer;
-  $('maxAnswer').value = cfg.maxAnswer;
+  for (const row of $('mathRanges').querySelectorAll('.range-row')) {
+    const r = cfg.ranges[row.dataset.op];
+    row.querySelector('.range-min').value = r.min;
+    row.querySelector('.range-max').value = r.max;
+  }
+  syncRangeVisibility();
   refreshExample();
 }
 
 // Read the current form into a normalized config.
 function readMathForm() {
   const operations = [...$('mathOps').querySelectorAll('.chip.on')].map((c) => c.dataset.op);
-  return window.MathLock.normalizeConfig({
-    operations,
-    minAnswer: parseInt($('minAnswer').value, 10),
-    maxAnswer: parseInt($('maxAnswer').value, 10),
-  });
+  const ranges = {};
+  for (const row of $('mathRanges').querySelectorAll('.range-row')) {
+    ranges[row.dataset.op] = {
+      min: parseInt(row.querySelector('.range-min').value, 10),
+      max: parseInt(row.querySelector('.range-max').value, 10),
+    };
+  }
+  return window.MathLock.normalizeConfig({ operations, ranges });
 }
 
 // Show a sample problem for the config currently in the form.
@@ -173,16 +188,20 @@ $('mathOps').addEventListener('click', (e) => {
   const on = $('mathOps').querySelectorAll('.chip.on');
   if (chip.classList.contains('on') && on.length === 1) return;
   chip.classList.toggle('on');
+  syncRangeVisibility();
   refreshExample();
 });
-$('minAnswer').addEventListener('input', refreshExample);
-$('maxAnswer').addEventListener('input', refreshExample);
+$('mathRanges').addEventListener('input', refreshExample);
 $('mathReroll').addEventListener('click', refreshExample);
 
 // ---- math lock ----
+const WRONG_WAIT_SECONDS = 15; // forced cool-off after every wrong answer
 let pendingAction = null;
 let currentAnswer = null;
+let lockUntil = 0; // timestamp; while in the future, submissions are blocked
 
+// Generate a fresh problem. Called ONLY when the parent opens the lock — never in
+// response to a wrong answer, so the child can't reroll their way to an easy exercise.
 function newProblem() {
   const p = window.MathLock.generateProblem(mathConfig);
   currentAnswer = p.answer;
@@ -193,22 +212,49 @@ function newProblem() {
 
 function requireMath(action) {
   pendingAction = action;
+  lockUntil = 0;
+  const btn = $('mathOk');
+  btn.disabled = false;
+  btn.textContent = 'Confirm';
   newProblem();
   $('mathModal').hidden = false;
   $('answer').focus();
 }
 
 $('mathOk').addEventListener('click', async () => {
+  // Inside the forced cool-off: ignore submissions entirely.
+  if (Date.now() < lockUntil) return;
+
+  // Ignore empty input: it's neither right nor a real attempt, so don't penalize it.
+  if ($('answer').value.trim() === '') return;
+
   if (Number($('answer').value) === currentAnswer) {
     $('mathModal').hidden = true;
     const action = pendingAction;
     pendingAction = null;
     if (action) await action();
     await refreshStatus();
-  } else {
-    $('mathError').hidden = false;
-    newProblem();
+    return;
   }
+
+  // Wrong: keep the SAME problem and force a 30s wait before the next attempt.
+  $('answer').value = '';
+  $('mathError').hidden = false;
+  lockUntil = Date.now() + WRONG_WAIT_SECONDS * 1000;
+  const btn = $('mathOk');
+  btn.disabled = true;
+  const tick = () => {
+    const left = Math.ceil((lockUntil - Date.now()) / 1000);
+    if (left > 0) {
+      btn.textContent = `Wait ${left}s`;
+      setTimeout(tick, 250);
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Confirm';
+      $('answer').focus();
+    }
+  };
+  tick();
 });
 $('answer').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('mathOk').click(); });
 $('mathCancel').addEventListener('click', () => { $('mathModal').hidden = true; pendingAction = null; });

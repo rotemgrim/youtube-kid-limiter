@@ -65,9 +65,12 @@ input, select {
 .chip.on { background: #6b6bff; border-color: #6b6bff; font-weight: 600; }
 .chip:hover { filter: brightness(1.12); }
 
-.range-row { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+.math-ranges { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.range-row { display: flex; align-items: center; gap: 6px; }
+.range-row[hidden] { display: none; }
+.range-op { font-size: 12px; font-weight: 600; width: 58px; flex: none; }
 .range-lbl { font-size: 12px; opacity: 0.8; white-space: nowrap; }
-.range-row input { width: 60px; text-align: center; padding: 6px; }
+.range-row input { width: 56px; text-align: center; padding: 6px; }
 
 .example { font-size: 12px; opacity: 0.75; margin: 8px 0 0; }
 .reroll { cursor: pointer; user-select: none; opacity: 0.7; }

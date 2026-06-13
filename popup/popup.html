@@ -35,11 +35,28 @@
         <button type="button" class="chip" data-op="sub">Subtract</button>
         <button type="button" class="chip" data-op="mul">Multiply</button>
       </div>
-      <div class="range-row">
-        <span class="range-lbl">Answer between</span>
-        <input type="number" id="minAnswer" min="0" max="9999" value="8">
-        <span class="range-lbl">and</span>
-        <input type="number" id="maxAnswer" min="0" max="9999" value="14">
+      <div id="mathRanges" class="math-ranges">
+        <div class="range-row" data-op="add">
+          <span class="range-op">Add</span>
+          <span class="range-lbl">answer</span>
+          <input type="number" class="range-min" min="0" max="9999" value="8">
+          <span class="range-lbl">to</span>
+          <input type="number" class="range-max" min="0" max="9999" value="14">
+        </div>
+        <div class="range-row" data-op="sub">
+          <span class="range-op">Subtract</span>
+          <span class="range-lbl">answer</span>
+          <input type="number" class="range-min" min="0" max="9999" value="8">
+          <span class="range-lbl">to</span>
+          <input type="number" class="range-max" min="0" max="9999" value="14">
+        </div>
+        <div class="range-row" data-op="mul">
+          <span class="range-op">Multiply</span>
+          <span class="range-lbl">answer</span>
+          <input type="number" class="range-min" min="0" max="9999" value="8">
+          <span class="range-lbl">to</span>
+          <input type="number" class="range-max" min="0" max="9999" value="14">
+        </div>
       </div>
       <p class="example"><span id="mathExample">…</span> <span id="mathReroll" class="reroll" title="New example">↻</span></p>
     </div>

@@ -14,8 +14,9 @@ const DEFAULT_TREATS = [
   { id: 't6', label: 'Bonus treat', minutes: 5, emoji: '🎁' },
 ];
 
-// mathConfig: parent-tweakable math-lock rules. operations is any of add|sub|mul; the
-// answer to every generated problem lands in [minAnswer, maxAnswer]. See lib/math-lock.js.
+// mathConfig: parent-tweakable math-lock rules. operations is any of add|sub|mul, and each
+// op carries its own answer range (cfg.ranges[op] = {min,max}). Stored opaquely here; the
+// flat default below is normalized into the per-op shape by lib/math-lock.js.
 const DEFAULT_MATH_CONFIG = { operations: ['add'], minAnswer: 8, maxAnswer: 14 };
 
 const SETTING_DEFAULTS = { usageTime: 20, breakTime: 10, mathConfig: DEFAULT_MATH_CONFIG, enabled: true, treats: DEFAULT_TREATS };
