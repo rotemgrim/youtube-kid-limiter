@@ -1,6 +1,6 @@
 {
   "name": "youtube-kid-limiter",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Chrome extension that limits kids' YouTube time with a brain-energy meter and restful breaks.",
   "private": true,
   "type": "module",
