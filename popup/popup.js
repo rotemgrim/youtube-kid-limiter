@@ -200,23 +200,41 @@ let pendingAction = null;
 let currentAnswer = null;
 let lockUntil = 0; // timestamp; while in the future, submissions are blocked
 
-// Generate a fresh problem. Called ONLY when the parent opens the lock — never in
-// response to a wrong answer, so the child can't reroll their way to an easy exercise.
-function newProblem() {
-  const p = window.MathLock.generateProblem(mathConfig);
-  currentAnswer = p.answer;
-  $('problem').textContent = p.text + ' = ?';
+// chrome.storage key holding the current unsolved problem. Persisting it means the
+// SAME problem survives cancelling, reopening, and even closing the popup — so a child
+// can't cancel-and-retap their way to an easier exercise. Cleared only once solved.
+const PENDING_KEY = 'pendingMathProblem';
+
+// Show the unsolved problem: reuse the persisted one if present, otherwise generate a
+// fresh problem and persist it. A new problem is therefore minted ONLY when there is no
+// outstanding one (i.e. the previous one was solved), never on cancel or wrong answer.
+async function loadOrCreateProblem() {
+  let prob = null;
+  try { prob = (await chrome.storage.local.get(PENDING_KEY))[PENDING_KEY]; } catch (_) {}
+  if (!prob || typeof prob.answer !== 'number' || typeof prob.text !== 'string') {
+    const p = window.MathLock.generateProblem(mathConfig);
+    prob = { text: p.text, answer: p.answer };
+    try { await chrome.storage.local.set({ [PENDING_KEY]: prob }); } catch (_) {}
+  }
+  currentAnswer = prob.answer;
+  $('problem').textContent = prob.text + ' = ?';
   $('answer').value = '';
   $('mathError').hidden = true;
 }
 
-function requireMath(action) {
+// Discard the persisted problem so the NEXT lock mints a fresh one. Called only after a
+// correct answer.
+async function clearPendingProblem() {
+  try { await chrome.storage.local.remove(PENDING_KEY); } catch (_) {}
+}
+
+async function requireMath(action) {
   pendingAction = action;
   lockUntil = 0;
   const btn = $('mathOk');
   btn.disabled = false;
   btn.textContent = 'Confirm';
-  newProblem();
+  await loadOrCreateProblem();
   $('mathModal').hidden = false;
   $('answer').focus();
 }
@@ -230,6 +248,7 @@ $('mathOk').addEventListener('click', async () => {
 
   if (Number($('answer').value) === currentAnswer) {
     $('mathModal').hidden = true;
+    await clearPendingProblem(); // solved — the next lock mints a fresh problem
     const action = pendingAction;
     pendingAction = null;
     if (action) await action();
