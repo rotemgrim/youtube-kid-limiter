@@ -10,8 +10,8 @@ import assert from 'node:assert';
 import { createHarness, MIN } from './harness.mjs';
 
 // Default settings (mirror background.js SETTING_DEFAULTS for readable expectations).
-const USAGE = MIN(20);
-const BREAK = MIN(10);
+const USAGE = MIN(45);
+const BREAK = MIN(480);
 
 // Build a harness already seeded with defaults and (optionally) extra state.
 async function fresh(overrides) {
@@ -27,14 +27,15 @@ describe('install / defaults', () => {
     const s = h.state();
     assert.equal(s.enabled, true);
     assert.equal(s.phase, 'idle');
-    assert.equal(s.usageTime, 20);
-    assert.equal(s.breakTime, 10);
+    assert.equal(s.usageTime, 45);
+    assert.equal(s.breakTime, 480);
     assert.deepEqual(s.mathConfig, { operations: ['add'], minAnswer: 8, maxAnswer: 14 });
     assert.equal(s.bonusMs, 0);
     assert.equal(s.sessionBudgetMs, null);
     assert.deepEqual(s.warned, []);
     assert.deepEqual(s.earnedBonuses, {});
     assert.equal(s.treats.length, 6);
+    assert.equal(s.giftLimit, 3);
   });
 
   test('does not overwrite values that already exist', async () => {
@@ -45,7 +46,7 @@ describe('install / defaults', () => {
     const s = h.state();
     assert.equal(s.usageTime, 5); // kept
     assert.equal(s.enabled, false); // kept
-    assert.equal(s.breakTime, 10); // filled from defaults
+    assert.equal(s.breakTime, 480); // filled from defaults
   });
 });
 
@@ -270,6 +271,49 @@ describe('treats — claiming (banking) earnings', () => {
     await h.bg.claimTreat('t1');
     assert.deepEqual(h.state().earnedBonuses, {});
   });
+
+  test('locks after the daily gift limit (3) is reached', async () => {
+    const h = await fresh();
+    const r1 = await h.bg.claimTreat('t1');
+    const r2 = await h.bg.claimTreat('t2');
+    const r3 = await h.bg.claimTreat('t1');
+    assert.equal(r1.ok, true);
+    assert.equal(r2.ok, true);
+    assert.equal(r3.ok, true);
+    assert.equal(r3.locked, true); // third claim hits the cap
+    assert.equal(h.state().giftsToday, 3);
+
+    // Fourth claim is rejected and banks nothing.
+    const r4 = await h.bg.claimTreat('t3');
+    assert.equal(r4.ok, false);
+    assert.equal(r4.locked, true);
+    assert.deepEqual(h.state().earnedBonuses, { t1: 2, t2: 1 }); // unchanged
+    assert.equal(h.state().giftsToday, 3);
+  });
+
+  test('honors a custom (parent-edited) daily gift limit', async () => {
+    const h = await fresh({ giftLimit: 1 });
+    const r1 = await h.bg.claimTreat('t1');
+    assert.equal(r1.ok, true);
+    assert.equal(r1.locked, true); // limit of 1 hit immediately
+    const r2 = await h.bg.claimTreat('t2');
+    assert.equal(r2.ok, false);
+    assert.equal(r2.limit, 1);
+    assert.deepEqual(h.state().earnedBonuses, { t1: 1 });
+  });
+
+  test('the daily counter resets on a new calendar day', async () => {
+    const h = await fresh();
+    await h.bg.claimTreat('t1');
+    await h.bg.claimTreat('t1');
+    await h.bg.claimTreat('t1');
+    assert.equal((await h.bg.claimTreat('t1')).locked, true); // capped today
+
+    h.advance(24 * 60 * 60 * 1000); // next day
+    const next = await h.bg.claimTreat('t2');
+    assert.equal(next.ok, true);
+    assert.equal(next.claimedToday, 1); // counter rolled over
+  });
 });
 
 describe('treats — spending on the rest screen', () => {
@@ -376,6 +420,14 @@ describe('parent actions', () => {
     await h.bg.saveTreats(treats);
     assert.deepEqual(h.state().treats, treats);
   });
+
+  test('saveTreats persists an edited daily gift limit (clamped to >= 1)', async () => {
+    const h = await fresh();
+    await h.bg.saveTreats(h.state().treats, 5);
+    assert.equal(h.state().giftLimit, 5);
+    await h.bg.saveTreats(h.state().treats, 0); // clamped up
+    assert.equal(h.state().giftLimit, 3);
+  });
 });
 
 describe('message router', () => {
@@ -385,7 +437,7 @@ describe('message router', () => {
     const status = await h.dispatch({ type: 'getStatus' });
     assert.equal(status.enabled, true);
     assert.equal(status.phase, 'watching');
-    assert.equal(status.usageTime, 20);
+    assert.equal(status.usageTime, 45);
     assert.equal(status.remainingMs, USAGE);
     assert.equal(status.treats.length, 6);
     assert.deepEqual(status.earnedBonuses, {});
@@ -403,7 +455,9 @@ describe('message router', () => {
   test('claimTreat routes through and acknowledges', async () => {
     const h = await fresh();
     const res = await h.dispatch({ type: 'claimTreat', treatId: 't3' });
-    assert.deepEqual(res, { ok: true });
+    assert.equal(res.ok, true);
+    assert.equal(res.claimedToday, 1);
+    assert.equal(res.limit, 3);
     assert.deepEqual(h.state().earnedBonuses, { t3: 1 });
   });
 

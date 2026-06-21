@@ -19,16 +19,36 @@ const DEFAULT_TREATS = [
 // flat default below is normalized into the per-op shape by lib/math-lock.js.
 const DEFAULT_MATH_CONFIG = { operations: ['add'], minAnswer: 8, maxAnswer: 14 };
 
-const SETTING_DEFAULTS = { usageTime: 20, breakTime: 10, mathConfig: DEFAULT_MATH_CONFIG, enabled: true, treats: DEFAULT_TREATS };
+// Default global daily cap on how many treats the kid can RECEIVE (claim/bank) in one
+// calendar day. Once reached, claiming locks until the next day. This is independent of
+// which treat is tapped — it counts total claims across all treats. Parent-editable from
+// the treat editor and persisted as the `giftLimit` setting.
+const DAILY_GIFT_LIMIT = 3;
+
+const SETTING_DEFAULTS = { usageTime: 45, breakTime: 480, mathConfig: DEFAULT_MATH_CONFIG, enabled: true, treats: DEFAULT_TREATS, giftLimit: DAILY_GIFT_LIMIT };
 // earnedBonuses: { [treatId]: count } — banked treat earnings. Persists across rest/watch
 //   cycles so the kid can spend them on the rest screen. Cleared only on a hard reset
 //   (turn off/on, save settings).
 // sessionBudgetMs: when non-null, overrides the base watch budget for the next session
 //   (used when a bonus is spent on the rest screen — that session lasts only the treat's
 //   minutes). Cleared when a rest begins.
-const RUNTIME_DEFAULTS = { phase: 'idle', accumulatedUsed: 0, lastPlayStart: null, restStart: null, restTabId: null, warned: [], bonusMs: 0, earnedBonuses: {}, sessionBudgetMs: null };
+// giftDate: local calendar day (YYYY-M-D) the giftsToday counter applies to. When the
+//   current day differs, the counter is treated as 0 (fresh day) before any claim.
+// giftsToday: number of treats claimed so far on giftDate. Capped at DAILY_GIFT_LIMIT.
+//   Deliberately NOT cleared on save/turn-off/turn-on so the daily cap can't be reset by
+//   toggling protection — it only rolls over when the calendar day changes.
+const RUNTIME_DEFAULTS = { phase: 'idle', accumulatedUsed: 0, lastPlayStart: null, restStart: null, restTabId: null, warned: [], bonusMs: 0, earnedBonuses: {}, sessionBudgetMs: null, giftDate: null, giftsToday: 0 };
 
 const minToMs = (m) => m * 60 * 1000;
+
+// Local calendar-day key used to scope the daily gift counter.
+const todayKey = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+};
+
+// How many gifts have been claimed today, accounting for a possible day rollover.
+const giftsClaimedToday = (s) => (s.giftDate === todayKey() ? (s.giftsToday || 0) : 0);
 
 // Total watch budget for a session = base (usageTime, or a one-shot session override)
 // plus any live bonus minutes added during this session. bonusMs is wiped at rest start;
@@ -221,22 +241,33 @@ async function turnOn() {
   await refreshBadge();
 }
 
-// Persist the (parent-edited) treat definitions.
-async function saveTreats(treats) {
-  await chrome.storage.local.set({ treats });
+// Persist the (parent-edited) treat definitions and, optionally, the daily gift cap.
+// giftLimit is clamped to a sane minimum of 1 so the kid can always earn at least one.
+async function saveTreats(treats, giftLimit) {
+  const next = { treats };
+  if (giftLimit !== undefined) next.giftLimit = Math.max(1, Number(giftLimit) || DAILY_GIFT_LIMIT);
+  await chrome.storage.local.set(next);
 }
 
 // Bank a treat that the kid earned (parent already passed the math lock in the popup).
 // Earnings always bank — never live-extend the current watch — so each treat is worth
 // exactly one bonus session, spent later by tapping the tile on the rest screen.
+// Returns { ok, locked, claimedToday, limit } so the popup can confirm or report the cap.
 async function claimTreat(treatId) {
   const s = await getState();
-  if (!s.enabled) return;
+  const limit = Number(s.giftLimit) || DAILY_GIFT_LIMIT;
+  const claimedToday = giftsClaimedToday(s);
+  if (!s.enabled) return { ok: false, locked: false, claimedToday, limit };
   const treat = (s.treats || []).find((t) => t.id === treatId);
-  if (!treat) return;
+  if (!treat) return { ok: false, locked: false, claimedToday, limit };
+
+  // Enforce the global daily gift cap before banking anything.
+  if (claimedToday >= limit) return { ok: false, locked: true, claimedToday, limit };
+
   const earnedBonuses = { ...(s.earnedBonuses || {}) };
   earnedBonuses[treatId] = (earnedBonuses[treatId] || 0) + 1;
-  await chrome.storage.local.set({ earnedBonuses });
+  const giftsToday = claimedToday + 1;
+  await chrome.storage.local.set({ earnedBonuses, giftDate: todayKey(), giftsToday });
 
   // Refresh the rest screen so the new earning shows up in the tile row right away.
   if (s.phase === 'resting' && s.restStart) {
@@ -246,6 +277,7 @@ async function claimTreat(treatId) {
       treats: s.treats || [], earnedBonuses,
     });
   }
+  return { ok: true, locked: giftsToday >= limit, claimedToday: giftsToday, limit };
 }
 
 // Spend one earned bonus from the rest screen: end the break immediately and start a
@@ -309,6 +341,7 @@ async function computeStatus() {
     usageTime: s.usageTime, breakTime: s.breakTime, mathConfig: s.mathConfig || DEFAULT_MATH_CONFIG,
     treats: s.treats || DEFAULT_TREATS, bonusMs: s.bonusMs || 0,
     earnedBonuses: s.earnedBonuses || {},
+    giftsToday: giftsClaimedToday(s), giftLimit: Number(s.giftLimit) || DAILY_GIFT_LIMIT,
   };
 }
 
@@ -334,9 +367,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       case 'turnOff': await turnOff(); sendResponse({ ok: true }); return;
       case 'turnOn': await turnOn(); sendResponse({ ok: true }); return;
       case 'skipBreak': await enterWatch(Date.now()); sendResponse({ ok: true }); return;
-      case 'claimTreat': await claimTreat(msg.treatId); sendResponse({ ok: true }); return;
+      case 'claimTreat': sendResponse(await claimTreat(msg.treatId)); return;
       case 'useTreatOnRest': await useTreatOnRest(msg.treatId); sendResponse({ ok: true }); return;
-      case 'saveTreats': await saveTreats(msg.treats); sendResponse({ ok: true }); return;
+      case 'saveTreats': await saveTreats(msg.treats, msg.giftLimit); sendResponse({ ok: true }); return;
     }
   })();
   return true; // keep the channel open for async sendResponse

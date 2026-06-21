@@ -9,6 +9,7 @@
   <section id="view-treats" class="wrap">
     <h1>🎁 Earn watch time</h1>
     <p class="bank" id="bank" hidden></p>
+    <p class="gift-meter" id="giftMeter"></p>
     <div id="treatGrid" class="treat-grid"></div>
     <a id="toSettings" class="link link-foot">Settings ⚙️</a>
   </section>
@@ -22,11 +23,11 @@
 
     <div class="field">
       <label for="usageTime">Watch time (minutes)</label>
-      <input type="number" id="usageTime" min="1" max="600" value="20">
+      <input type="number" id="usageTime" min="1" max="600" value="45">
     </div>
     <div class="field">
       <label for="breakTime">Rest time (minutes)</label>
-      <input type="number" id="breakTime" min="1" max="1440" value="10">
+      <input type="number" id="breakTime" min="1" max="1440" value="480">
     </div>
     <div class="field math-config">
       <label>Math lock</label>
@@ -74,9 +75,13 @@
   <section id="view-editor" class="wrap" hidden>
     <a id="editorBack" class="link">← Settings</a>
     <h1>✏️ Edit treats</h1>
+    <div class="field">
+      <label for="giftLimit">Gifts allowed per day</label>
+      <input type="number" id="giftLimit" min="1" max="50" value="3">
+    </div>
     <div id="editorRows" class="editor-rows"></div>
     <button id="saveTreats" class="btn primary">Save treats</button>
-    <p class="hint">Each treat banks the given number of minutes when claimed. Emoji is set from the label for now.</p>
+    <p class="hint">Each treat banks the given number of minutes when claimed. The daily limit caps how many treats the kid can claim each day. Emoji is set from the label for now.</p>
   </section>
 
   <!-- Math lock modal (shared across views) -->

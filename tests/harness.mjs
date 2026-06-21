@@ -27,7 +27,16 @@ const EXPOSE = `
 
 export function createHarness({ now = 1_000_000, tabs = [{ id: 1 }], playing = [] } = {}) {
   const clock = { t: now };
-  const FakeDate = { now: () => clock.t };
+  // Real Date subclass driven by the controllable clock: `Date.now()` and an argless
+  // `new Date()` both read clock.t, while explicit args behave normally. This keeps
+  // calendar-aware code (e.g. the daily gift counter's day key) testable.
+  class FakeDate extends Date {
+    constructor(...args) {
+      if (args.length === 0) super(clock.t);
+      else super(...args);
+    }
+    static now() { return clock.t; }
+  }
 
   let store = {};
   const playingTabs = new Set(playing); // tabIds that report isPlaying:true

@@ -126,6 +126,23 @@ section[hidden] { display: none; }
 }
 .bank.flash { background: rgba(124, 131, 255, 0.25); border-color: rgba(124, 131, 255, 0.6); }
 
+/* ---- daily gift meter ---- */
+.gift-meter {
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  margin: 0 0 12px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(124, 131, 255, 0.15);
+  border: 1px solid rgba(124, 131, 255, 0.4);
+}
+.gift-meter.locked {
+  background: rgba(255, 99, 99, 0.15);
+  border-color: rgba(255, 99, 99, 0.5);
+  color: #ffb3b3;
+}
+
 .treat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .treat {
   display: flex;
@@ -143,6 +160,8 @@ section[hidden] { display: none; }
 }
 .treat:hover { transform: translateY(-2px); filter: brightness(1.12); }
 .treat:active { transform: translateY(0); }
+.treat:disabled { cursor: not-allowed; opacity: 0.4; filter: grayscale(0.6); }
+.treat:disabled:hover { transform: none; filter: grayscale(0.6); }
 .treat-emoji { font-size: 30px; line-height: 1; }
 .treat-emoji.sm { font-size: 22px; }
 .treat-label { font-size: 12px; line-height: 1.25; min-height: 30px; }

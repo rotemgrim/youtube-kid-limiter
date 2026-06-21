@@ -19,6 +19,9 @@ function show(id) {
 
 // ---- shared state pulled from the background ----
 let treats = [];
+// Daily gift cap state, pulled from the background on every refresh.
+let giftsToday = 0;
+let giftLimit = 3;
 // The math-lock config used to GUARD actions (claim treat, save settings, turn off…).
 // Pulled from the saved settings so unsaved edits in the form can't weaken the lock.
 let mathConfig = window.MathLock.DEFAULT_CONFIG;
@@ -27,6 +30,8 @@ async function refreshStatus() {
   const st = await chrome.runtime.sendMessage({ type: 'getStatus' });
   if (!st) return;
   treats = st.treats || [];
+  giftsToday = st.giftsToday || 0;
+  giftLimit = st.giftLimit || 3;
 
   $('usageTime').value = st.usageTime;
   $('breakTime').value = st.breakTime;
@@ -83,17 +88,33 @@ async function refreshStatus() {
 function renderTreats() {
   const grid = $('treatGrid');
   grid.replaceChildren();
+  const locked = giftsToday >= giftLimit;
+
+  // Daily-cap meter: "Gifts today: 2 / 3" (or a lock note once the cap is hit).
+  const meter = $('giftMeter');
+  if (meter) {
+    meter.classList.toggle('locked', locked);
+    meter.textContent = locked
+      ? `🔒 Daily gift limit reached (${giftLimit}/${giftLimit}) — back tomorrow`
+      : `🎁 Gifts today: ${giftsToday} / ${giftLimit}`;
+  }
+
   for (const t of treats) {
     const tile = document.createElement('button');
     tile.className = 'treat';
+    tile.disabled = locked;
     tile.innerHTML =
       `<span class="treat-emoji">${treatEmoji(t)}</span>` +
       `<span class="treat-label"></span>` +
       `<span class="treat-min">+${t.minutes} min</span>`;
     tile.querySelector('.treat-label').textContent = t.label;
     tile.addEventListener('click', () => requireMath(async () => {
-      await chrome.runtime.sendMessage({ type: 'claimTreat', treatId: t.id });
-      flash(`Earned +${t.minutes} min! 🎉`);
+      const res = await chrome.runtime.sendMessage({ type: 'claimTreat', treatId: t.id });
+      if (res && res.locked && !res.ok) {
+        flash(`🔒 Daily gift limit reached (${res.limit}/${res.limit})`);
+      } else if (res && res.ok) {
+        flash(`Earned +${t.minutes} min! 🎉`);
+      }
     }));
     grid.appendChild(tile);
   }
@@ -112,6 +133,7 @@ function flash(text) {
 
 // ---- treat editor (parent-facing) ----
 function renderEditor() {
+  $('giftLimit').value = giftLimit;
   const wrap = $('editorRows');
   wrap.replaceChildren();
   treats.forEach((t, i) => {
@@ -313,8 +335,10 @@ $('skip').addEventListener('click', () => requireMath(async () => {
 // ---- editor save (math-locked) ----
 $('saveTreats').addEventListener('click', () => requireMath(async () => {
   const next = collectEditor();
-  await chrome.runtime.sendMessage({ type: 'saveTreats', treats: next });
+  const nextLimit = Math.max(1, parseInt($('giftLimit').value, 10) || giftLimit);
+  await chrome.runtime.sendMessage({ type: 'saveTreats', treats: next, giftLimit: nextLimit });
   treats = next;
+  giftLimit = nextLimit;
   renderTreats();
   show('view-treats');
 }));

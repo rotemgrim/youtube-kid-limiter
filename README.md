@@ -45,9 +45,12 @@ You control three things from the toolbar popup:
 
 | Setting                  | What it does                                                | Default |
 |--------------------------|-------------------------------------------------------------|---------|
-| **Watch time**           | Minutes of actual viewing before a break                    | 20 min  |
-| **Rest time**            | Length of the break (set long for a daily cap)              | 10 min  |
+| **Watch time**           | Minutes of actual viewing before a break                    | 45 min  |
+| **Rest time**            | Length of the break (set long for a daily cap)              | 8 hours |
 | **Math lock**            | Allowed operations (add / subtract / multiply) and the range the answer must fall in | Add, 8–14 |
+
+There's also a **daily gift cap**: the child can claim at most **3 treats per day**. Once reached, the treat tiles
+lock until the next calendar day — so bonus time can't be farmed without limit.
 
 The toolbar icon shows the current state at a glance: **REST** during a break, **OFF** when protection is disabled, and
 blank while watching.
